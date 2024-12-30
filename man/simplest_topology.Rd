@@ -2,7 +2,7 @@
 % Please edit documentation in R/topology_functions.R
 \name{simplest_topology}
 \alias{simplest_topology}
-\title{Create a completely connected graph topology}
+\title{Create a topology with completely disconnected sets}
 \usage{
 simplest_topology(datos)
 }
@@ -13,13 +13,24 @@ simplest_topology(datos)
 A list containing:
 \itemize{
 \item R - A list of relationships between vertices
-\item subbase - The initial subbase of the topology
-\item base - The base of the topology
-\item topology - The final topology structure
+\item subbase - Sets of individual vertices
+\item base - Singleton sets
+\item topology - Completely disconnected topology of singleton sets
 }
 }
 \description{
-Create a completely connected graph topology
+This function generates a topology where each set in the topology
+is a singleton (contains only one element), resulting in a completely
+disconnected topological structure. Each vertex exists in isolation,
+with no meaningful connections between sets.
+}
+\details{
+\itemize{
+\item The subbase contains individual elements
+\item The base consists of singleton sets
+\item The topology is formed by these singleton sets
+\item No meaningful topological relationships are established between elements
+}
 }
 \examples{
 data <- c(1, 2, 3, 4, 5)
