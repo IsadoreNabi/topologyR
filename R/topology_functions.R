@@ -282,8 +282,34 @@ calculate_topology <- function(data, threshold) {
   length(base)  # Retorna el tamaño de la base como medida de complejidad
 }
 
+#' Visualize Topology Thresholds
+#'
+#' @title Visualize and Compare Different Threshold Methods
+#' @description This function creates a comprehensive visualization of different 
+#'   threshold methods used in topology analysis. It generates three plots:
+#'   1) A comparison of threshold values across methods
+#'   2) A comparison of base sizes for each method
+#'   3) A scatter plot showing the relationship between thresholds and base sizes
+#'   
 #' @param data Numeric vector to analyze
+#' @param plot Logical indicating whether to display plots (default: TRUE)
+#' @return A data frame containing the following columns:
+#'   \itemize{
+#'     \item method: The name of the threshold calculation method
+#'     \item threshold: The calculated threshold value
+#'     \item base_size: The size of the resulting topological base
+#'   }
+#' @import ggplot2
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#' # Generate sample data
+#' data <- rnorm(100)
+#' 
+#' # Visualize threshold comparisons
+#' results <- visualize_topology_thresholds(data)
+#' }
 visualize_topology_thresholds <- function(data, plot = TRUE) {
   library(ggplot2)
 
