@@ -281,6 +281,9 @@ calculate_topology <- function(data, threshold) {
 
   length(base)  # Retorna el tamaño de la base como medida de complejidad
 }
+
+#' @param data Numeric vector to analyze
+#' @export
 visualize_topology_thresholds <- function(data, plot = TRUE) {
   library(ggplot2)
 
