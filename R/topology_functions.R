@@ -13,10 +13,10 @@
 #'
 #' @param topology A list of sets representing the topology
 #' @return logical TRUE if topology is connected, FALSE otherwise
-#' @export
 #' @examples
 #' topology <- list(c(1,2,3), c(3,4,5))
 #' is_topology_connected(topology)
+#' @export
 is_topology_connected <- function(topology) {
   if (!length(topology)) return(FALSE)
 
@@ -57,10 +57,10 @@ is_topology_connected <- function(topology) {
 #'
 #' @param topology A list of sets representing the topology
 #' @return logical TRUE if topology is connected, FALSE otherwise
-#' @export
 #' @examples
 #' topology <- list(c(1,2,3), c(3,4,5))
 #' is_topology_connected2(topology)
+#' @export
 is_topology_connected2 <- function(topology) {
   # Handle empty topology case
   if (!length(topology)) return(FALSE)
@@ -112,10 +112,10 @@ is_topology_connected2 <- function(topology) {
 #'
 #' @param topology A list of sets representing the topology
 #' @return logical TRUE if topology is connected, FALSE otherwise
-#' @export
 #' @examples
 #' topology <- list(c(1,2,3), c(3,4,5))
 #' is_topology_connected_manual(topology)
+#' @export
 is_topology_connected_manual <- function(topology) {
   # Get all unique elements in the topology
   all_elements <- unique(unlist(topology))
@@ -305,7 +305,7 @@ calculate_topology <- function(data, threshold) {
 #'     \item base_size: The size of the resulting topological base
 #'   }
 #' @importFrom ggplot2 ggplot aes geom_bar geom_point geom_text theme_minimal labs
-#' @export
+
 #'
 #' @examples
 #' \dontrun{
@@ -315,6 +315,7 @@ calculate_topology <- function(data, threshold) {
 #' # Visualize threshold comparisons
 #' results <- visualize_topology_thresholds(data)
 #' }
+#' @export
 visualize_topology_thresholds <- function(data, plot = TRUE) {
   library(ggplot2)
 
@@ -362,15 +363,27 @@ visualize_topology_thresholds <- function(data, plot = TRUE) {
   return(df)
 }
 
-#' Create a completely connected graph topology
+#' Create a topology with completely disconnected sets
+#'
+#' @description
+#' This function generates a topology where each set in the topology
+#' is a singleton (contains only one element), resulting in a completely
+#' disconnected topological structure. Each vertex exists in isolation,
+#' with no meaningful connections between sets.
+#'
+#' @details
+#' - The subbase contains individual elements
+#' - The base consists of singleton sets
+#' - The topology is formed by these singleton sets
+#' - No meaningful topological relationships are established between elements
 #'
 #' @param datos Numeric vector containing the data points to analyze
 #' @return A list containing:
 #'   \itemize{
 #'     \item R - A list of relationships between vertices
-#'     \item subbase - The initial subbase of the topology
-#'     \item base - The base of the topology
-#'     \item topology - The final topology structure
+#'     \item subbase - Sets of individual vertices
+#'     \item base - Singleton sets
+#'     \item topology - Completely disconnected topology of singleton sets
 #'   }
 #' @export
 #' @examples
@@ -448,10 +461,10 @@ simplest_topology <- function(datos) {
 #'     \item base - The base generated from intersections of neighborhoods
 #'     \item topology - The final topology structure
 #'   }
-#' @export
 #' @examples
 #' data <- c(1, 2, 3, 4, 5)
 #' result <- complete_topology(data)
+#' @export
 complete_topology <- function(datos) {
   # Step 1: Get number of vertices
   n <- length(datos)
