@@ -285,7 +285,6 @@ calculate_topology <- function(data, threshold) {
 #' Visualize Topology Thresholds
 #'
 #' @title Visualize and Compare Different Threshold Methods
-<<<<<<< HEAD
 #' @description This function creates a comprehensive visualization of different
 #'   threshold methods used in topology analysis. It generates three distinct plots
 #'   to help understand the relationships between different threshold methods and
@@ -297,14 +296,6 @@ calculate_topology <- function(data, threshold) {
 #'   3) A scatter plot revealing the relationship between thresholds and base sizes,
 #'      helping identify potential optimal threshold values
 #'
-=======
-#' @description This function creates a comprehensive visualization of different
-#'   threshold methods used in topology analysis. It generates three plots:
-#'   1) A comparison of threshold values across methods
-#'   2) A comparison of base sizes for each method
-#'   3) A scatter plot showing the relationship between thresholds and base sizes
-#'
->>>>>>> c3ab4eee852d51f67a07ab491d3975d5c2f7517b
 #' @param data Numeric vector to analyze
 #' @param plot Logical indicating whether to display plots (default: TRUE)
 #' @return A data frame containing the following columns:
@@ -313,22 +304,14 @@ calculate_topology <- function(data, threshold) {
 #'     \item threshold: The calculated threshold value
 #'     \item base_size: The size of the resulting topological base
 #'   }
-<<<<<<< HEAD
 #' @importFrom ggplot2 ggplot aes geom_bar geom_point geom_text theme_minimal labs
-=======
-#' @import ggplot2
->>>>>>> c3ab4eee852d51f67a07ab491d3975d5c2f7517b
 #' @export
 #'
 #' @examples
 #' \dontrun{
 #' # Generate sample data
 #' data <- rnorm(100)
-<<<<<<< HEAD
 #'
-=======
-#'
->>>>>>> c3ab4eee852d51f67a07ab491d3975d5c2f7517b
 #' # Visualize threshold comparisons
 #' results <- visualize_topology_thresholds(data)
 #' }
@@ -378,7 +361,6 @@ visualize_topology_thresholds <- function(data, plot = TRUE) {
   # Return data frame for further analysis
   return(df)
 }
-<<<<<<< HEAD
 
 #' Create a completely connected graph topology
 #'
@@ -530,5 +512,3 @@ complete_topology <- function(datos) {
 
   list(R = R, subbase = subbase, base = base, topology = topology)
 }
-=======
->>>>>>> c3ab4eee852d51f67a07ab491d3975d5c2f7517b
