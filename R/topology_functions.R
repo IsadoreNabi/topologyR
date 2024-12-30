@@ -385,10 +385,10 @@ visualize_topology_thresholds <- function(data, plot = TRUE) {
 #'     \item base - Singleton sets
 #'     \item topology - Completely disconnected topology of singleton sets
 #'   }
-#' @export
 #' @examples
 #' data <- c(1, 2, 3, 4, 5)
 #' result <- simplest_topology(data)
+#' @export
 simplest_topology <- function(datos) {
   # Step 1: Get number of vertices
   n <- length(datos)
