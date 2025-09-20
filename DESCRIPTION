@@ -1,0 +1,22 @@
+Package: topologyR
+Type: Package
+Title: Topological Connectivity Analysis for Numeric Data
+Version: 0.1.0
+Authors@R: 
+    person(given = "José Mauricio", family = "Gómez Julián",
+           email = "isadore.nabi@pm.me", role = c("aut", "cre"))
+Description: Construct and analyze topological structures (subbases, bases, and full topologies) from numeric data (e.g., time series) and assess connectivity with multiple criteria and threshold exploration utilities.
+License: MIT + file LICENSE
+URL: https://github.com/IsadoreNabi/topologyR
+BugReports: https://github.com/IsadoreNabi/topologyR/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends: R (>= 4.0.0)
+Imports: ggplot2, stats, utils
+Suggests: testthat (>= 3.0.0), knitr, rmarkdown
+Config/testthat/edition: 3
+NeedsCompilation: no
+Packaged: 2025-09-19 18:25:24 UTC; ROG
+Author: José Mauricio Gómez Julián [aut, cre]
+Maintainer: José Mauricio Gómez Julián <isadore.nabi@pm.me>
