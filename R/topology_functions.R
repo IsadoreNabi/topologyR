@@ -144,6 +144,9 @@ is_topology_connected_manual <- function(topology) {
 #'
 #' @param data Numeric vector containing the data to analyze
 #' @param factors Numeric vector of factors to test (default: c(1, 2, 4, 8, 16))
+#' @param data Numeric vector containing the data to analyze
+#' @param factors Numeric vector of factors to test (default: c(1, 2, 4, 8, 16))
+#' @param plot Logical, whether to display a plot (default: TRUE)
 #' @return A data frame containing the following columns for each factor:
 #'   \itemize{
 #'     \item factor: The IQR division factor used
@@ -177,7 +180,6 @@ is_topology_connected_manual <- function(topology) {
 #'
 #' @export
 analyze_topology_factors <- function(data, factors = NULL, plot = TRUE) {
-  library(ggplot2)
   # Set default factors if not provided
   if (is.null(factors)) {
     factors <- c(1, 2, 4, 8, 16)
@@ -185,7 +187,7 @@ analyze_topology_factors <- function(data, factors = NULL, plot = TRUE) {
 
   # Inner function to calculate topology for a single factor
   calculate_topology_with_factor <- function(data, factor) {
-    threshold <- IQR(data) / factor
+    threshold <- stats::IQR(data) / factor
     n <- length(data)
 
     # Calculate subbase using threshold
@@ -211,7 +213,7 @@ analyze_topology_factors <- function(data, factors = NULL, plot = TRUE) {
     topology <- calculate_topology_with_factor(data, f)
     list(
       factor = f,
-      threshold = IQR(data) / f,
+      threshold = stats::IQR(data) / f,
       base_size = length(topology),
       max_set_size = max(sapply(topology, length)),
       min_set_size = min(sapply(topology, length))
@@ -223,14 +225,14 @@ analyze_topology_factors <- function(data, factors = NULL, plot = TRUE) {
 
   # Optional plotting
   if (plot) {
-    p <- ggplot(results_df, aes(x = factor)) +
-      geom_line(aes(y = base_size, color = "Tamaño de la Base")) +
-      geom_line(aes(y = max_set_size, color = "Tamaño Máximo del Conjunto")) +
-      geom_line(aes(y = min_set_size, color = "Tamaño Mínimo del Conjunto")) +
-      scale_x_log10() +
-      labs(title = "Efecto del Factor IQR en la Topología",
-           x = "Factor IQR", y = "Tamaño") +
-      theme_minimal()
+    p <- ggplot2::ggplot(results_df, ggplot2::aes(x = factor)) +
+      ggplot2::geom_line(ggplot2::aes(y = base_size, color = "Base Size")) +
+      ggplot2::geom_line(ggplot2::aes(y = max_set_size, color = "Maximum Set Size")) +
+      ggplot2::geom_line(ggplot2::aes(y = min_set_size, color = "Minimum Set Size")) +
+      ggplot2::scale_x_log10() +
+      ggplot2::labs(title = "Effect of IQR Factor on Topology",
+           x = "IQR Factor", y = "Size") +
+      ggplot2::theme_minimal()
 
     # Print the plot
     print(p)
@@ -248,12 +250,12 @@ analyze_topology_factors <- function(data, factors = NULL, plot = TRUE) {
 calculate_thresholds <- function(data) {
   list(
     mean_diff = mean(abs(diff(sort(data)))),
-    median_diff = median(abs(diff(sort(data)))),
-    sd = sd(data),
-    iqr = IQR(data) / 4,
+    median_diff = stats::median(abs(diff(sort(data)))),
+    sd = stats::sd(data),
+    iqr = stats::IQR(data) / 4,
     dbscan = {
       k <- ceiling(log(length(data)))
-      sort(dist(matrix(data, ncol=1)))[k * length(data)]
+      sort(stats::dist(matrix(data, ncol=1)))[k * length(data)]
     }
   )
 }
@@ -261,6 +263,7 @@ calculate_thresholds <- function(data) {
 #' Visualize thresholds and base sizes for different methods
 #'
 #' @param data Numeric vector to analyze
+#' @param threshold Numeric value for the threshold parameter
 #' @export
 calculate_topology <- function(data, threshold) {
   n <- length(data)
@@ -279,7 +282,7 @@ calculate_topology <- function(data, threshold) {
   }
   base <- unique(base)
 
-  length(base)  # Retorna el tamaño de la base como medida de complejidad
+  length(base)  # Returns the base size as a complexity measure
 }
 
 #' Visualize Topology Thresholds
@@ -317,7 +320,6 @@ calculate_topology <- function(data, threshold) {
 #' }
 #' @export
 visualize_topology_thresholds <- function(data, plot = TRUE) {
-  library(ggplot2)
 
   # Calculate thresholds
   thresholds <- calculate_thresholds(data)
@@ -333,26 +335,26 @@ visualize_topology_thresholds <- function(data, plot = TRUE) {
   )
 
   # Threshold comparison plot
-  p1 <- ggplot(df, aes(x = method, y = threshold)) +
+  p1 <- ggplot2::ggplot(df, ggplot2::aes(x = method, y = threshold)) +
     geom_bar(stat = "identity") +
-    theme_minimal() +
-    labs(title = "Comparación de umbrales por método",
-         x = "Método", y = "Umbral")
+    ggplot2::theme_minimal() +
+    ggplot2::labs(title = "Threshold comparison by method",
+         x = "Method", y = "Threshold")
 
   # Base size comparison plot
-  p2 <- ggplot(df, aes(x = method, y = base_size)) +
+  p2 <- ggplot2::ggplot(df, ggplot2::aes(x = method, y = base_size)) +
     geom_bar(stat = "identity") +
-    theme_minimal() +
-    labs(title = "Comparación de tamaños de base por método",
-         x = "Método", y = "Tamaño de la base")
+    ggplot2::theme_minimal() +
+    ggplot2::labs(title = "Base size comparison by method",
+         x = "Method", y = "Base size")
 
   # Threshold vs base size plot
-  p3 <- ggplot(df, aes(x = threshold, y = base_size, label = method)) +
+  p3 <- ggplot2::ggplot(df, ggplot2::aes(x = threshold, y = base_size, label = method)) +
     geom_point() +
     geom_text(hjust = -0.1, vjust = 0) +
-    theme_minimal() +
-    labs(title = "Relación entre umbral y tamaño de base",
-         x = "Umbral", y = "Tamaño de la base")
+    ggplot2::theme_minimal() +
+    ggplot2::labs(title = "Relationship between threshold and base size",
+         x = "Threshold", y = "Base size")
 
   # Print plots
   print(p1)
