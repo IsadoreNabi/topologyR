@@ -2,21 +2,22 @@
 % Please edit documentation in R/directed_topology.R
 \name{generate_alexandrov_topology}
 \alias{generate_alexandrov_topology}
-\title{Generate the Alexandrov topology from a directed visibility graph}
+\title{Generate the Alexandrov topology of the reachability preorder of a digraph}
 \usage{
 generate_alexandrov_topology(
   out_adjacency,
   n_elements,
   max_open_sets = 0L,
   check_connected = TRUE,
-  verify_axioms = FALSE
+  verify_axioms = FALSE,
+  expect = c("any", "index_ordered_dag")
 )
 }
 \arguments{
 \item{out_adjacency}{A list of integer vectors, where element \code{i}
-contains the 1-based indices of all \strong{forward} (later-in-time)
-neighbors of node \code{i}. Must represent a DAG where all edges go
-from lower to higher index. Typically obtained from
+contains the 1-based indices of the direct successors of node
+\code{i}. Any directed graph is accepted; see \emph{Description} for
+the three regimes. Typically obtained from
 \code{\link{horizontal_visibility_graph}} or
 \code{\link{natural_visibility_graph}} with \code{directed = TRUE}.}
 
@@ -34,12 +35,22 @@ connectivity via the specialization preorder (default: \code{TRUE}).}
 \item{verify_axioms}{Logical. Whether to verify topology axioms after
 enumeration (default: \code{FALSE}). Only meaningful when the topology
 is fully enumerated.}
+
+\item{expect}{Character. What the caller asserts about the input:
+\code{"any"} (default) accepts every digraph and dispatches to the
+right regime; \code{"index_ordered_dag"} \emph{verifies} the strict
+contract of the visibility-graph case -- every edge from a lower to a
+higher index -- and stops with an error if it does not hold. The
+check is \eqn{O(m)}. Use it when the caller's own semantics require
+the strict case (e.g. time-indexed series), so that a malformed
+input fails loudly instead of being silently generalized.}
 }
 \value{
 A \code{list} with the same structure as
 \code{\link{generate_topology}}:
 \describe{
-\item{subbase}{List of integer vectors. The upsets (= base for Alexandrov).}
+\item{subbase}{List of integer vectors. The distinct upsets
+(= base for Alexandrov).}
 \item{base}{List of integer vectors. Same as subbase (upsets are already
 closed under intersection).}
 \item{base_complete}{Always \code{TRUE} (no iteration needed).}
@@ -49,14 +60,40 @@ closed under intersection).}
 enumerated.}
 \item{n_open_sets}{Integer, or \code{NA}. Number of open sets if enumerated.}
 \item{complete}{Logical. Whether enumeration finished.}
+\item{input_index_ordered}{Logical. Whether every edge of the input
+went from a lower to a higher index (regime 1).}
+\item{input_acyclic}{Logical. Whether the input had no directed
+cycle.}
+\item{collapsed_classes}{List of integer vectors: the non-trivial
+strongly connected components, each a class of topologically
+indistinguishable vertices. \code{list()} when there are none.
+A non-empty value is a finding about the system, not an error:
+within each class, the topology cannot distinguish.}
 }
 }
 \description{
-Computes the Alexandrov topology induced by a directed acyclic graph (DAG)
-via bitset-based reachability propagation. The open sets are the upsets of
-the reachability relation: vertex \eqn{v}'s minimal open set is the set of
-all vertices reachable from \eqn{v} via directed paths (including \eqn{v}
-itself).
+Computes the Alexandrov topology induced by a directed graph via the
+reachability preorder. The open sets are the upsets of reachability:
+vertex \eqn{v}'s minimal open set is the set of all vertices reachable
+from \eqn{v} via directed paths (including \eqn{v} itself).
+
+The input is \strong{any} directed graph. Three regimes are handled,
+and the result reports which one applied:
+\enumerate{
+\item \strong{Index-ordered DAG} (every edge goes from a lower to a
+higher index -- what directed visibility graphs produce): the
+original single-pass bitset engine runs unchanged, bit-identical
+to versions up to 0.2.0.
+\item \strong{DAG in arbitrary vertex order}: the vertices are
+re-indexed along a topological order first. Versions up to 0.2.0
+required index order but did not check it, and returned wrong
+upsets on such inputs without any warning.
+\item \strong{Digraph with directed cycles}: mutually reachable
+vertices have identical upsets by definition of the preorder, so
+the topology is computed on the condensation (Tarjan, 1972) and
+expanded back to the vertices. Versions up to 0.2.0 returned a
+valid-looking but wrong topology on cyclic inputs.
+}
 
 The Alexandrov topology is a \strong{lower bound} on the resolution of
 the Nada et al. (2018) topology: \eqn{\tau_A \subseteq \tau^+_{\mathrm{Nada}}}.
@@ -65,12 +102,19 @@ the intersection/union closure of Nada et al. captures beyond the pure
 order structure.
 }
 \details{
-The algorithm computes reachability in \eqn{O(n \cdot m / 64)} time by
-processing vertices in reverse topological order (= reverse time order
-for visibility graphs) and propagating reachability sets as multi-word
-bitsets with OR operations. This reuses the same bitset infrastructure
-as the Nada engine with compile-time template dispatch for
-\eqn{n \leq 192}.
+For regime 1 the algorithm computes reachability in
+\eqn{O(n \cdot m / 64)} time by processing vertices in reverse index
+order (= reverse time order for visibility graphs) and propagating
+reachability sets as multi-word bitsets with OR operations. For
+regimes 2 and 3 the strongly connected components are found with
+Tarjan's algorithm (\eqn{O(n + m)}), the condensation is re-indexed
+along a topological order, the same bitset engine runs on the
+condensation, and the resulting sets are expanded back to the original
+vertices. Since vertices in one strongly connected component are
+topologically indistinguishable, the expansion is a bijection between
+the open sets of the condensation and the open sets of the input, so
+every reported field (connectivity, components, enumeration,
+axiom checks) transfers exactly.
 
 The Alexandrov topology on a finite set equipped with a preorder is
 canonical: there is a bijection between preorders and Alexandrov
@@ -85,10 +129,18 @@ alex <- generate_alexandrov_topology(g$out_adjacency, g$n)
 alex$connected
 length(alex$base)
 
+# A directed cycle: all three vertices are mutually reachable, so the
+# topology collapses them into one class
+cyc <- generate_alexandrov_topology(list(2L, 3L, 1L), 3L)
+cyc$collapsed_classes
+
 }
 \references{
 Alexandrov, P. (1937). Diskrete Raume. \emph{Matematicheskii Sbornik},
 2(44), 501-519.
+
+Tarjan, R. E. (1972). Depth-first search and linear graph algorithms.
+\emph{SIAM Journal on Computing}, 1(2), 146-160.
 }
 \seealso{
 \code{\link{generate_topology}} for the Nada et al. topology,

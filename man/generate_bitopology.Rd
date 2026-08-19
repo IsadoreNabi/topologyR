@@ -69,6 +69,20 @@ forward and backward topologies: passing directed adjacency lists to the
 existing \code{\link{generate_topology}} produces the correct closed
 neighborhoods \eqn{N^+[v]} or \eqn{N^-[v]} automatically (the engine
 always adds the self-loop \eqn{v \in N[v]}).
+
+\strong{The Alexandrov branch is constant for this input class.} Because
+consecutive observations always see each other, every directed
+visibility graph contains the path \eqn{1 \to 2 \to \dots \to n};
+reachability is therefore the total order, and the Alexandrov topology
+is the same chain of upsets \eqn{\{i, \dots, n\}} for \emph{every}
+series. It carries no information about the particular series analyzed
+-- it is a property of the visibility-graph class (see the
+corresponding section in \code{\link{bitopology_invariants}}). Callers
+that consume only the Nada side can set \code{alexandrov = FALSE} and
+skip that cost; the Alexandrov branch earns its keep on general
+digraphs passed directly to
+\code{\link{generate_alexandrov_topology}}, where it does vary with
+the input.
 }
 \examples{
 series <- c(3, 1, 4, 1, 5, 9, 2, 6)

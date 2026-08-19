@@ -21,9 +21,11 @@ test_that("generate_topology detects connectivity correctly", {
   topo_conn <- generate_topology(adj_conn, 3L)
   expect_true(is.logical(topo_conn$connected))
 
-  # Two isolated nodes
+  # Two isolated nodes: the engine warns, by design, that enumerating a
+  # space already known to be disconnected is wasted work
   adj_disc <- list(integer(0), integer(0))
-  topo_disc <- generate_topology(adj_disc, 2L)
+  expect_warning(topo_disc <- generate_topology(adj_disc, 2L),
+                 "already determined to be disconnected")
   expect_true(is.logical(topo_disc$connected))
 })
 
@@ -55,7 +57,8 @@ test_that("specialization preorder gives exact components", {
     c(2L, 3L), c(1L, 3L), c(1L, 2L),  # triangle 1
     c(5L, 6L), c(4L, 6L), c(4L, 5L)   # triangle 2
   )
-  topo <- generate_topology(adj, 6L)
+  expect_warning(topo <- generate_topology(adj, 6L),
+                 "already determined to be disconnected")
   expect_false(topo$connected)
   expect_equal(length(topo$components), 2L)
   all_elements <- sort(unlist(topo$components))
@@ -90,7 +93,10 @@ test_that("max_open_sets limits enumeration gracefully", {
     if (i < n)  nb <- c(nb, i + 1L)
     nb
   })
-  topo <- generate_topology(adj, n, max_open_sets = 20L)
+  # The Nada topology of this path is topologically disconnected, so the
+  # engine also emits its by-design warning about enumerating it
+  expect_warning(topo <- generate_topology(adj, n, max_open_sets = 20L),
+                 "already determined to be disconnected")
   expect_true(is.logical(topo$connected))
   # With a tight limit, enumeration should be incomplete
   expect_false(topo$complete)

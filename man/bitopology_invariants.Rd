@@ -42,9 +42,9 @@ A \code{list} with:
 \item{irreversibility_components}{Numeric in the range 0 to 1. Normalized
 asymmetry of component counts:
 \eqn{|C^+ - C^-| / \max(C^+, C^-)}.
-Zero means equal component counts (necessary for reversibility).}
-\item{irreversibility_base}{Numeric in the range 0 to 1. Normalized asymmetry
-of base sizes.}
+Zero means equal component counts (necessary for reversibility).
+Note this is a coarse reading: it compares \emph{counts}, and two
+partitions can differ while their counts agree.}
 \item{asymmetry_direction}{Integer. \eqn{C^- - C^+}. Positive means
 the forward topology is more connected (fewer components) than the
 backward topology, consistent with gradual expansions (forward
@@ -68,6 +68,56 @@ Given the forward topology \eqn{\tau^+} and backward topology \eqn{\tau^-}
 invariants that quantify temporal irreversibility and structural asymmetry.
 }
 \details{
+\strong{Why there is no \code{irreversibility_base} field.} Versions up
+to 0.2.0 reported the normalized asymmetry of the two base sizes,
+\eqn{||B^+| - |B^-|| / \max}. That quantity is \strong{identically zero
+by a theorem of the construction}, for every digraph -- not only for
+visibility graphs -- so it measures nothing and was removed. The two
+base sizes remain reported, since each is informative on its own.
+
+\emph{Theorem.} Let \eqn{R} be any binary relation on a finite set
+\eqn{V}. For \eqn{v \in V} let \eqn{F(v) = \{w : v R w\}} (row) and
+\eqn{C(v) = \{w : w R v\}} (column), and let \eqn{\mathcal{B}(F)} be
+the set of non-empty intersections of non-empty subfamilies of
+\eqn{\{F(v)\}}, likewise \eqn{\mathcal{B}(C)}. Then
+\eqn{|\mathcal{B}(F)| = |\mathcal{B}(C)|}.
+
+\emph{Proof sketch.} Consider the formal context \eqn{K = (V, V, R)}.
+The intents of \eqn{K} are the intersections \eqn{\cap_{v \in A} F(v)}
+over all \eqn{A \subseteq V} (with \eqn{A = \emptyset} giving \eqn{V});
+the extents are the same over columns. The Galois connection induced by
+\eqn{R} gives the classical bijection between intents and extents
+(Ganter & Wille, 1999; the duality is Birkhoff's, 1940), so
+\eqn{|\mathrm{Int}| = |\mathrm{Ext}|}. Adjusting the two boundary cases
+-- whether \eqn{V} itself is an intersection of rows, and whether some
+non-empty subfamily intersects to the empty set -- contributes the same
+correction on both sides, because a full row on one side is exactly what
+prevents an empty intersection on the other. Subtracting,
+\eqn{|\mathcal{B}(F)| = |\mathcal{B}(C)|}.
+
+The forward and backward closed neighborhoods are rows and columns of
+the reflexive closure of the visibility relation, and the Nada closure
+generates all finite intersections, so
+\code{forward_base_size == backward_base_size} whenever both closures
+ran to completion (\code{base_complete}). The only exception is
+truncation: if \code{max_base_sets} cuts one side, both sides report
+\code{base_complete = FALSE} and the sizes are not comparable.
+
+\strong{The Alexandrov branch is constant on visibility graphs.} In a
+visibility graph -- horizontal or natural -- consecutive observations
+always see each other, so the digraph contains every edge
+\eqn{i \to i+1}, reachability is the total order \eqn{1 < 2 < \dots < n},
+and the Alexandrov topology is always the same chain of upsets
+\eqn{\{i, \dots, n\}}, independent of the series. Consequently, for
+visibility-graph input: \code{alexandrov_base_size} \eqn{= n},
+\code{alexandrov_components} \eqn{= 1}, \code{alexandrov_connected}
+\eqn{=} \code{TRUE}, and the resolution-gain fields reduce to
+\code{fwd/bwd_base_size - n}: all of their information comes from the
+Nada side. These fields are genuinely informative for \emph{general}
+digraphs, where the Alexandrov topology varies with the input; for
+visibility graphs they are properties of the graph class, not
+measurements of the series.
+
 \strong{Pairwise connectedness} (Kelly, 1963): the bitopological space
 \eqn{(X, \tau^+, \tau^-)} is pairwise disconnected if there exists a
 proper non-empty subset \eqn{A \subset X} that is simultaneously
@@ -100,6 +150,12 @@ inv$asymmetry_direction
 \references{
 Kelly, J. C. (1963). Bitopological spaces. \emph{Proceedings of the
 London Mathematical Society}, 3(1), 71-89.
+
+Ganter, B., & Wille, R. (1999). \emph{Formal Concept Analysis:
+Mathematical Foundations}. Springer.
+
+Birkhoff, G. (1940). \emph{Lattice Theory}. American Mathematical
+Society.
 }
 \seealso{
 \code{\link{generate_bitopology}} for the complete pipeline.

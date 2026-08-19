@@ -257,9 +257,10 @@ test_that("bitopology_invariants returns all expected fields", {
   expect_true(!is.null(inv$forward_connected))
   expect_true(!is.null(inv$backward_connected))
   expect_true(!is.null(inv$irreversibility_components))
-  expect_true(!is.null(inv$irreversibility_base))
   expect_true(!is.null(inv$asymmetry_direction))
   expect_true(!is.null(inv$pairwise))
+  # Retired in 0.3.0: identically zero by the intents-extents duality
+  expect_null(inv$irreversibility_base)
 })
 
 test_that("irreversibility index is in valid range", {
@@ -267,8 +268,6 @@ test_that("irreversibility index is in valid range", {
   inv <- bt$invariants
   expect_true(inv$irreversibility_components >= 0)
   expect_true(inv$irreversibility_components <= 1)
-  expect_true(inv$irreversibility_base >= 0)
-  expect_true(inv$irreversibility_base <= 1)
 })
 
 test_that("symmetric series has low irreversibility", {

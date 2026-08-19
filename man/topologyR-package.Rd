@@ -19,5 +19,10 @@ Useful links:
 \author{
 \strong{Maintainer}: José Mauricio Gómez Julián \email{isadore.nabi@pm.me}
 
+Authors:
+\itemize{
+  \item José Mauricio Gómez Julián \email{isadore.nabi@pm.me}
+}
+
 }
 \keyword{internal}
