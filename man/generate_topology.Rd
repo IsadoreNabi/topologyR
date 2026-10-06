@@ -2,7 +2,7 @@
 % Please edit documentation in R/topology_generation.R
 \name{generate_topology}
 \alias{generate_topology}
-\title{Generate a topology from a graph's neighborhood structure}
+\title{Generate the topology induced by the closed neighbourhoods of a graph}
 \usage{
 generate_topology(
   adjacency,
@@ -14,82 +14,156 @@ generate_topology(
 )
 }
 \arguments{
-\item{adjacency}{A list of integer vectors, where element \code{i}
-contains the 1-based indices of all neighbors of node \code{i}.
-Typically obtained from \code{\link{horizontal_visibility_graph}} or
-\code{\link{natural_visibility_graph}}.}
+\item{adjacency}{List of length \code{n_elements}; element \code{i} is an
+integer vector with the 1-based indices of the neighbours (for a directed
+construction, the out-neighbours or the in-neighbours) of vertex \code{i}.
+Repeated indices, \code{i} itself and indices outside
+\eqn{1, \ldots, n} are ignored. No default.}
 
-\item{n_elements}{Integer. Total number of elements in the ground set V.}
+\item{n_elements}{Integer scalar, at least 1: the number of vertices. Must
+equal \code{length(adjacency)}. No default.}
 
-\item{max_open_sets}{Integer. Maximum number of open sets to enumerate
-(default: 1,000,000). If the topology exceeds this limit, enumeration
-stops and \code{complete = FALSE}. Connectivity is unaffected (computed
-from the base, not the topology). Set to 0 to skip enumeration entirely.}
+\item{max_open_sets}{Non-negative integer scalar (default 1,000,000). The
+enumeration of the open sets stops as soon as their number exceeds it;
+\code{0} skips the enumeration.}
 
-\item{max_base_sets}{Integer. Maximum number of base elements during
-intersection closure (default: 100,000). If exceeded, closure stops
-early and \code{base_complete = FALSE}. Connectivity results remain
-valid but may be approximate if the base is incomplete.}
+\item{max_base_sets}{Positive integer scalar (default 100,000). The closure
+of the subbase under intersections stops at the first new intersection
+that makes the base exceed this number of sets. It is not a strict cap on
+the size of the returned base: the whole subbase is always kept, and so is
+the intersection that crosses the limit.}
 
-\item{check_connected}{Logical. Whether to compute exact topological
-connectivity via the specialization preorder (default: \code{TRUE}).}
+\item{check_connected}{Logical scalar (default \code{TRUE}): whether to
+compute the connected components.}
 
-\item{verify_axioms}{Logical. Whether to verify topology axioms after
-enumeration (default: \code{FALSE}). Only meaningful when the topology
-is fully enumerated (\code{complete = TRUE}).}
+\item{verify_axioms}{Logical scalar (default \code{FALSE}): whether to check,
+independently of the construction, that the enumerated family contains
+the empty set and the whole set and is closed under the union and the
+intersection of any two members, which on a finite set are the axioms of
+a topology. The check runs only when \code{topology_complete} is
+\code{TRUE}; it takes \eqn{O(|\tau|^2 \lceil n/64 \rceil)} word
+operations and \eqn{O(|\tau|^2)} hash lookups.}
 }
 \value{
 A \code{list} with:
 \describe{
-\item{subbase}{List of integer vectors. The neighborhoods used as subbase.}
-\item{base}{List of integer vectors. The base (closure under intersections).}
-\item{base_complete}{Logical. Whether the base closure finished within
-the \code{max_base_sets} limit.}
-\item{connected}{Logical. Whether the topological space is connected.
-This is an \strong{exact} result based on the specialization preorder.
-\code{NA} if \code{check_connected = FALSE}.}
-\item{components}{List of integer vectors. The exact topological connected
-components. Each component is a vector of 1-based element indices.}
-\item{topology}{List of integer vectors, or \code{NULL}. The open sets,
-if enumeration was requested and feasible.}
-\item{n_open_sets}{Integer, or \code{NA}. Number of open sets if enumerated.}
-\item{complete}{Logical. Whether the topology enumeration finished
-within the \code{max_open_sets} limit.}
-\item{iterations_base}{Integer. Wavefront iterations for base closure.}
-\item{iterations_topo}{Integer. Wavefront iterations for union closure.}
-\item{axioms_ok}{Logical (only if \code{verify_axioms = TRUE} and
-\code{complete = TRUE}).}
-\item{axiom_failure}{Character (only if axiom verification fails).}
+\item{subbase}{List of integer vectors: the distinct closed
+neighbourhoods \eqn{N[v]}.}
+\item{base}{List of integer vectors: the distinct non-empty finite
+intersections of members of the subbase. When \code{base_complete} is
+\code{FALSE} it is a subfamily that contains the whole subbase.}
+\item{base_complete}{Logical: whether the intersection closure finished
+within \code{max_base_sets}.}
+\item{connected}{Logical: whether the space is connected; \code{NA} if
+\code{check_connected = FALSE}.}
+\item{components}{List of integer vectors: the connected components,
+exact whether or not the base is complete (see Methodological notes);
+an empty list if \code{check_connected = FALSE} and \eqn{n \ge 2}.}
+\item{iterations_base}{Integer: rounds of the intersection closure.}
+\item{topology}{List of integer vectors with the enumerated open sets,
+or \code{NULL} if \code{max_open_sets = 0}.}
+\item{n_open_sets}{Integer: the number of enumerated open sets, or
+\code{NA} if the enumeration was not requested.}
+\item{topology_complete}{Logical: \code{TRUE} if the enumerated family
+is the whole topology; \code{FALSE} if the enumeration was requested
+but cannot be certified complete, because \code{max_open_sets} cut it
+or because the base was incomplete; \code{NA} if the enumeration was
+not requested.}
+\item{iterations_topo}{Integer: rounds of the union closure.}
+\item{axioms_ok}{Logical, present only when \code{verify_axioms = TRUE}
+and \code{topology_complete} is \code{TRUE}.}
+\item{axiom_failure}{Character, present only if that check fails.}
 }
 }
 \description{
-Given a graph (represented by its adjacency list of neighborhoods), generates
-the induced topology following Nada et al. (2018). The procedure is:
-\enumerate{
-\item The neighborhoods \eqn{N(v)} form the \strong{subbase}.
-\item The base is the closure of the subbase under finite intersections
-(wavefront propagation in C++).
-\item Topological connectivity is determined \strong{exactly} via the
-specialization preorder on the base (Alexandrov theorem for finite
-spaces), without requiring topology enumeration.
-\item Optionally, the full topology (closure under arbitrary unions) is
-enumerated, subject to a \code{max_open_sets} limit.
+Builds the topology on the vertices \eqn{\{1, \ldots, n\}} of a graph that is
+generated by the closed neighbourhoods \eqn{N[v] = \{v\} \cup N(v)}, computes
+its connected components exactly, and optionally enumerates its open sets.
+Given undirected adjacency lists it is the undirected construction; given the
+out-neighbour or in-neighbour lists of a digraph it gives the forward or the
+backward topology. Use it directly for any graph, or through
+\code{\link[=generate_bitopology]{generate_bitopology()}} for time series.
+}
+\details{
+The base is computed by wavefront propagation: each new intersection is
+intersected, in the next round, with every set already in the base, until a
+round produces nothing new. Every new set is a proper subset of a set
+produced in the previous round, so the closure ends after at most \eqn{n}
+rounds; the base itself can have exponentially many sets in \eqn{n}, which
+is what \code{max_base_sets} guards against. The components are computed
+from the signatures \eqn{S(x) = \{B \in \mathcal{B} : x \in B\}}: \eqn{x}
+and \eqn{y} are comparable when \eqn{S(x) \subseteq S(y)} or
+\eqn{S(y) \subseteq S(x)}, and the components are those of the
+comparability graph, found by breadth-first search in
+\eqn{O(n^2 \lceil |\mathcal{B}| / 64 \rceil)} word operations. The open sets
+are enumerated by the same wavefront scheme with unions, which can produce
+up to \eqn{2^n} sets; when the space is already known to be disconnected,
+the engine warns that the enumeration is not needed for connectivity.
+}
+\section{Methodological notes}{
+
+\emph{Closed neighbourhoods.} Nada, El Atik and Atef (2018, Definition 3.1)
+take as subbase the post classes of the adjacency relation, which for a
+loopless graph are the open neighbourhoods \eqn{N(v)}. This function uses the
+closed neighbourhoods \eqn{N[v]}, so that every vertex lies in its own
+subbase element: the subbase covers the vertex set and the smallest open set
+containing \eqn{v} is contained in \eqn{N[v]}. The two constructions give
+different topologies; on the complete graph, for instance, the closed
+variant gives the indiscrete topology and the open one the discrete
+topology.
+
+\emph{Why the components are exact, even from a truncated base.} In a finite
+space every point \eqn{x} has a smallest open set \eqn{U_x}, the
+intersection of the members of the subbase that contain \eqn{x}. For any
+family \eqn{F} with subbase \eqn{\subseteq F \subseteq \tau}, every member of
+\eqn{F} that contains \eqn{x} contains \eqn{y} if and only if
+\eqn{y \in U_x}: if \eqn{y \in U_x}, every open set containing \eqn{x}
+contains \eqn{U_x}; conversely, the members of the subbase that contain
+\eqn{x} are among those of \eqn{F}, and their intersection is \eqn{U_x}. The
+relation \eqn{x \le y \iff y \in U_x} is the specialization preorder.
+Let \eqn{\sim} be the equivalence generated by comparability. Each class
+\eqn{C} is open, because it contains \eqn{U_x} for each of its points (every
+\eqn{y \in U_x} satisfies \eqn{x \le y}), and closed, because its complement
+is a union of other classes; so every connected component lies inside one
+class. Each class is connected: if a class split into two non-empty parts
+\eqn{A} and \eqn{B}, both relatively open, some \eqn{x \in A} and
+\eqn{y \in B} would be comparable, say \eqn{x \le y}; the open set that cuts
+out \eqn{A} contains \eqn{U_x}, hence \eqn{y}, a contradiction (the case
+\eqn{y \le x} is symmetric). The components are therefore the classes, and
+since the engine places the whole subbase in the base before the closure
+can be cut, the signatures it compares always give the same classes.
+
+\emph{What the base size measures.} The number of sets in the base is a
+property of the construction, not of the topology: two subbases that
+generate the same topology can have intersection closures of different
+sizes.
 }
 
-The connectivity result is \strong{exact}: the connected components returned
-are the true topological connected components, not approximations.
+\section{Dependencies}{
+
+The compiled engine (C++ through 'Rcpp').
 }
+
 \examples{
-# From a small visibility graph
-series <- c(3, 1, 4, 1, 5)
-g <- horizontal_visibility_graph(series)
-topo <- generate_topology(g$adjacency, g$n)
+g <- horizontal_visibility_graph(c(3, 1, 4, 1, 5))
+topo <- generate_topology(g$adjacency, g$n, max_open_sets = 0L)
 topo$connected
-length(topo$components)
+topo$components
+topo$topology_complete
 
+full <- generate_topology(g$adjacency, g$n, verify_axioms = TRUE)
+full$n_open_sets
+full$topology_complete
+full$axioms_ok
 }
 \references{
 Nada, S., El Atik, A. E. F., & Atef, M. (2018). New types of topological
-structures via graphs. \emph{Mathematical Methods in the Applied Sciences},
-41(15), 5801-5810. \doi{10.1002/mma.4726}
+structures via graphs. Mathematical Methods in the Applied Sciences,
+41(15), 5801-5810. https://doi.org/10.1002/mma.4726
+}
+\seealso{
+\code{\link[=generate_bitopology]{generate_bitopology()}} for the time-series pipeline,
+\code{\link[=generate_alexandrov_topology]{generate_alexandrov_topology()}} for the Alexandrov topology of
+reachability, \code{\link[=is_topology_connected_exact]{is_topology_connected_exact()}} for an enumerated topology,
+and the user manual in \code{system.file("manuals", package = "topologyR")}.
 }

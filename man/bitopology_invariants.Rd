@@ -2,7 +2,7 @@
 % Please edit documentation in R/directed_topology.R
 \name{bitopology_invariants}
 \alias{bitopology_invariants}
-\title{Compute bitopological invariants from forward and backward topologies}
+\title{Invariants of a pair of forward and backward topologies}
 \usage{
 bitopology_invariants(
   forward,
@@ -13,150 +13,193 @@ bitopology_invariants(
 )
 }
 \arguments{
-\item{forward}{The forward Nada topology \eqn{\tau^+} (output of
-\code{\link{generate_topology}} called with forward adjacency).}
+\item{forward}{Result of \code{\link[=generate_topology]{generate_topology()}} for the out-neighbour lists,
+computed with \code{check_connected = TRUE}. No default.}
 
-\item{backward}{The backward Nada topology \eqn{\tau^-} (output of
-\code{\link{generate_topology}} called with backward adjacency).}
+\item{backward}{Result of \code{\link[=generate_topology]{generate_topology()}} for the in-neighbour lists,
+computed with \code{check_connected = TRUE}. No default.}
 
-\item{n_elements}{Integer. Total number of elements in the ground set V.}
+\item{n_elements}{Integer scalar: the number of points; must equal the
+number of points covered by the components. No default.}
 
-\item{undirected}{The undirected Nada topology (optional, for comparison).}
+\item{undirected}{Optional result of \code{\link[=generate_topology]{generate_topology()}} for the
+undirected lists. Default \code{NULL}.}
 
-\item{alexandrov}{The Alexandrov topology (optional, for resolution
-comparison).}
+\item{alexandrov}{Optional result of \code{\link[=generate_alexandrov_topology]{generate_alexandrov_topology()}} for
+the out-neighbour lists. Default \code{NULL}.}
 }
 \value{
 A \code{list} with:
 \describe{
-\item{forward_components}{Integer. Number of connected components in
-\eqn{\tau^+}.}
-\item{backward_components}{Integer. Number of connected components in
-\eqn{\tau^-}.}
-\item{forward_connected}{Logical. Whether \eqn{\tau^+} is connected.}
-\item{backward_connected}{Logical. Whether \eqn{\tau^-} is connected.}
-\item{forward_base_size}{Integer. Number of base elements in
-\eqn{\tau^+}.}
-\item{backward_base_size}{Integer. Number of base elements in
-\eqn{\tau^-}.}
-\item{irreversibility_components}{Numeric in the range 0 to 1. Normalized
-asymmetry of component counts:
-\eqn{|C^+ - C^-| / \max(C^+, C^-)}.
-Zero means equal component counts (necessary for reversibility).
-Note this is a coarse reading: it compares \emph{counts}, and two
-partitions can differ while their counts agree.}
-\item{asymmetry_direction}{Integer. \eqn{C^- - C^+}. Positive means
-the forward topology is more connected (fewer components) than the
-backward topology, consistent with gradual expansions (forward
-visibility) and abrupt contractions (backward obstruction).}
-\item{pairwise}{A list with pairwise connectedness results. Contains
-\code{pairwise_connected} (logical or \code{NA}),
-\code{clopen_forward} (integer vector, the forward-open / backward-
-closed set if disconnected), and \code{clopen_backward} (its
-complement). Requires both topologies to be fully enumerated
-(\code{max_open_sets > 0} and \code{complete = TRUE}).}
-\item{resolution}{A list comparing the Nada and Alexandrov topologies
-(if \code{alexandrov} is provided). Contains base size comparisons
-and relative resolution gains.}
-\item{undirected_info}{A list with undirected topology summary (if
-\code{undirected} is provided).}
+\item{forward_components, backward_components}{Integers \eqn{C^+} and
+\eqn{C^-}: the numbers of connected components, exact even when a base
+was truncated.}
+\item{forward_connected, backward_connected}{Logical.}
+\item{forward_base_size, backward_base_size}{Integers \eqn{|B^+|} and
+\eqn{|B^-|}: the numbers of sets in the two bases, or \code{NA} when
+the corresponding base was truncated.}
+\item{forward_base_complete, backward_base_complete}{Logical: the
+\code{base_complete} flags of the two topologies.}
+\item{irreversibility_components}{Numeric in \eqn{[0, 1]}:
+\eqn{I_C = |C^+ - C^-| / \max(C^+, C^-)}.}
+\item{asymmetry_direction}{Integer \eqn{D = C^- - C^+}.}
+\item{pairwise}{List with \code{pairwise_connected} (logical, never
+\code{NA}: the property is decided exactly, without enumerating either
+topology) and, when it is \code{FALSE}, \code{clopen_forward}, a proper
+non-empty \eqn{\tau^+}-open set whose complement is \eqn{\tau^-}-open,
+and \code{clopen_backward}, that complement.}
+\item{resolution}{\code{NULL} unless \code{alexandrov} is given;
+otherwise a list with \code{alexandrov_base_size},
+\code{alexandrov_components}, \code{alexandrov_connected},
+\code{nada_forward_base_gain} and \code{nada_backward_base_gain}
+(\eqn{|B^+| - |B_A|} and \eqn{|B^-| - |B_A|}, \code{NA} with a
+truncated base) and the same differences divided by
+\eqn{\max(|B_A|, 1)} (\code{nada_forward_relative_gain},
+\code{nada_backward_relative_gain}).}
+\item{undirected_info}{\code{NULL} unless \code{undirected} is given;
+otherwise a list with \code{undirected_components},
+\code{undirected_connected} and \code{undirected_base_size}
+(\code{NA} with a truncated base).}
 }
 }
 \description{
-Given the forward topology \eqn{\tau^+} and backward topology \eqn{\tau^-}
-(as returned by \code{\link{generate_topology}}), computes bitopological
-invariants that quantify temporal irreversibility and structural asymmetry.
+Given the forward topology \eqn{\tau^+} and the backward topology
+\eqn{\tau^-} computed by \code{\link[=generate_topology]{generate_topology()}}, reports their numbers of
+connected components and of base sets, two summaries of the difference
+between the component counts, the pairwise connectedness of the
+bitopological space, decided exactly, and, when supplied, comparisons with the
+Alexandrov and the undirected topologies.
 }
 \details{
-\strong{Why there is no \code{irreversibility_base} field.} Versions up
-to 0.2.0 reported the normalized asymmetry of the two base sizes,
-\eqn{||B^+| - |B^-|| / \max}. That quantity is \strong{identically zero
-by a theorem of the construction}, for every digraph -- not only for
-visibility graphs -- so it measures nothing and was removed. The two
-base sizes remain reported, since each is informative on its own.
+\strong{The two base sizes are equal.} Let \eqn{R} be a binary relation on
+a finite non-empty set \eqn{V}, with rows \eqn{F(v) = \{w : v R w\}} and
+columns \eqn{C(v) = \{w : w R v\}}, and let \eqn{\mathcal{B}(F)} be the set
+of non-empty intersections of non-empty families of rows, likewise
+\eqn{\mathcal{B}(C)}. Then \eqn{|\mathcal{B}(F)| = |\mathcal{B}(C)|}.
+\emph{Proof.} For \eqn{A \subseteq V} let \eqn{A' = \bigcap_{v \in A} F(v)}
+(with \eqn{\emptyset' = V}) and for \eqn{B \subseteq V} let
+\eqn{B^* = \{v : B \subseteq F(v)\} = \bigcap_{w \in B} C(w)}. Both maps
+reverse inclusion and \eqn{A \subseteq A'^*}, \eqn{B \subseteq B^{*\prime}}, so
+\eqn{A' = A'^{*\prime}} and \eqn{B^* = B^{*\prime *}}; hence \eqn{'} and
+\eqn{^*} are mutually inverse bijections between the intersections of rows
+over all \eqn{A}, the intents, and the intersections of columns over all
+\eqn{B}, the extents, in the terminology of formal concept analysis (Ganter &
+Wille, 1999), and there are as many of each. \eqn{\mathcal{B}(F)} is the set
+of intents without \eqn{V}, unless \eqn{V} is a row, and without
+\eqn{\emptyset}, which is an intent exactly when no column is \eqn{V} (the
+intersection of all rows is the set of \eqn{w} that are related to every
+\eqn{v}); symmetrically for \eqn{\mathcal{B}(C)} with rows and columns
+exchanged. The two corrections are the same two events, so the cardinals
+agree. The closed forward and backward neighbourhoods are the rows and
+columns of the reflexive closure of the arc relation, and the engine keeps
+exactly the non-empty intersections, so \code{forward_base_size} equals
+\code{backward_base_size} whenever both bases are complete. For the same
+reason \code{nada_forward_base_gain} equals \code{nada_backward_base_gain}
+whenever both are defined.
 
-\emph{Theorem.} Let \eqn{R} be any binary relation on a finite set
-\eqn{V}. For \eqn{v \in V} let \eqn{F(v) = \{w : v R w\}} (row) and
-\eqn{C(v) = \{w : w R v\}} (column), and let \eqn{\mathcal{B}(F)} be
-the set of non-empty intersections of non-empty subfamilies of
-\eqn{\{F(v)\}}, likewise \eqn{\mathcal{B}(C)}. Then
-\eqn{|\mathcal{B}(F)| = |\mathcal{B}(C)|}.
+\strong{Comparison with the Alexandrov topology.} \eqn{\tau_A \subseteq
+\tau^+} for every digraph, and the Alexandrov topology of the reversed
+reachability is contained in \eqn{\tau^-}; both have as many base sets as
+the digraph has strongly connected components. Each gain is non-negative,
+because every smallest open set of \eqn{\tau^+} is an intersection of
+members of the subbase and so belongs to \eqn{B^+}, and \eqn{\tau^+}, being
+finer, separates at least as many points as \eqn{\tau_A}. The gains count
+sets of the construction; they do not measure how much finer \eqn{\tau^+}
+is than \eqn{\tau_A}, since the size of an intersection-closed base depends
+on the subbase that generates it. On a visibility graph the Alexandrov
+topology is the chain of \eqn{n} sets \eqn{\{i, \ldots, n\}}, so the gains
+are \eqn{|B^+| - n}.
 
-\emph{Proof sketch.} Consider the formal context \eqn{K = (V, V, R)}.
-The intents of \eqn{K} are the intersections \eqn{\cap_{v \in A} F(v)}
-over all \eqn{A \subseteq V} (with \eqn{A = \emptyset} giving \eqn{V});
-the extents are the same over columns. The Galois connection induced by
-\eqn{R} gives the classical bijection between intents and extents
-(Ganter & Wille, 1999; the duality is Birkhoff's, 1940), so
-\eqn{|\mathrm{Int}| = |\mathrm{Ext}|}. Adjusting the two boundary cases
--- whether \eqn{V} itself is an intersection of rows, and whether some
-non-empty subfamily intersects to the empty set -- contributes the same
-correction on both sides, because a full row on one side is exactly what
-prevents an empty intersection on the other. Subtracting,
-\eqn{|\mathcal{B}(F)| = |\mathcal{B}(C)|}.
+\strong{Pairwise connectedness.} \eqn{(V, \tau^+, \tau^-)} is pairwise
+disconnected when \eqn{V} is the union of two disjoint non-empty sets, the
+first open in \eqn{\tau^+} and the second open in \eqn{\tau^-}. The
+function decides it exactly from the two subbases, which are always
+complete, without enumerating either topology. Let \eqn{U^+_x} and
+\eqn{U^-_x} be the smallest open sets of \eqn{x} in \eqn{\tau^+} and
+\eqn{\tau^-}, the intersections of the members of each subbase that contain
+\eqn{x}, and let \eqn{H} be the digraph on \eqn{V} with an arc
+\eqn{x \to y} when \eqn{y \in U^+_x} or \eqn{x \in U^-_y}. A set \eqn{A} is
+open in \eqn{\tau^+} with its complement open in \eqn{\tau^-} if and only if
+no arc of \eqn{H} leaves \eqn{A}: \eqn{A \in \tau^+} means
+\eqn{U^+_x \subseteq A} for every \eqn{x \in A}, and
+\eqn{V \setminus A \in \tau^-} means \eqn{U^-_y \subseteq V \setminus A} for
+every \eqn{y \notin A}, that is, \eqn{x \in A} and \eqn{x \in U^-_y} imply
+\eqn{y \in A}. A proper non-empty set that no arc leaves exists if and only
+if \eqn{H} is not strongly connected, and then a strongly connected
+component that no arc leaves is one; the function takes the first component
+that Tarjan's (1972) algorithm completes. The smallest open sets cost the
+intersections of the members that contain each point, \eqn{O(\sum_S |S|^2)}
+over the members \eqn{S} of the two subbases (expected, since
+\code{intersect()} hashes), and the search costs \eqn{O(n + a)} for the
+\eqn{a} arcs of \eqn{H}; with at most \eqn{n} members of at most \eqn{n}
+points, the total is \eqn{O(n^3)} at worst, and much less when the
+neighbourhoods are small. The accompanying article
+decides the property by searching the enumerated topologies (its algorithm
+5), with an undecided answer when an enumeration is cut; this criterion
+gives the same answer whenever that search decides, and never leaves it
+undecided.
 
-The forward and backward closed neighborhoods are rows and columns of
-the reflexive closure of the visibility relation, and the Nada closure
-generates all finite intersections, so
-\code{forward_base_size == backward_base_size} whenever both closures
-ran to completion (\code{base_complete}). The only exception is
-truncation: if \code{max_base_sets} cuts one side, both sides report
-\code{base_complete = FALSE} and the sizes are not comparable.
-
-\strong{The Alexandrov branch is constant on visibility graphs.} In a
-visibility graph -- horizontal or natural -- consecutive observations
-always see each other, so the digraph contains every edge
-\eqn{i \to i+1}, reachability is the total order \eqn{1 < 2 < \dots < n},
-and the Alexandrov topology is always the same chain of upsets
-\eqn{\{i, \dots, n\}}, independent of the series. Consequently, for
-visibility-graph input: \code{alexandrov_base_size} \eqn{= n},
-\code{alexandrov_components} \eqn{= 1}, \code{alexandrov_connected}
-\eqn{=} \code{TRUE}, and the resolution-gain fields reduce to
-\code{fwd/bwd_base_size - n}: all of their information comes from the
-Nada side. These fields are genuinely informative for \emph{general}
-digraphs, where the Alexandrov topology varies with the input; for
-visibility graphs they are properties of the graph class, not
-measurements of the series.
-
-\strong{Pairwise connectedness} (Kelly, 1963): the bitopological space
-\eqn{(X, \tau^+, \tau^-)} is pairwise disconnected if there exists a
-proper non-empty subset \eqn{A \subset X} that is simultaneously
-\eqn{\tau^+}-open and \eqn{\tau^-}-closed (its complement is
-\eqn{\tau^-}-open). This is checked by iterating over all
-\eqn{\tau^+} open sets and testing whether their complement is
-\eqn{\tau^-}-open.
-
-\strong{Irreversibility prediction} (Lacasa & Toral, 2010): for a time
-series with asymmetric dynamics (e.g., gradual expansions and abrupt
-recessions), the forward topology \eqn{\tau^+} should be more connected
-than \eqn{\tau^-}, because forward visibility is less obstructed during
-gradual rises than backward visibility after abrupt drops.
-
-\strong{Resolution gain}: the difference
-\eqn{|\mathcal{B}_{\mathrm{Nada}}| - |\mathcal{B}_A|} quantifies how
-much additional structure the Nada intersection/union closure captures
-beyond the pure Alexandrov order structure. A large gain means the
-Nada pipeline is extracting genuinely new topological information.
+\emph{On visibility graphs the answer is known in advance.} When every arc
+goes from a lower to a higher index, as in every directed visibility graph,
+and \eqn{n \ge 2}, the space is pairwise disconnected. For each
+\eqn{k < n}, the final segment \eqn{\{k+1, \ldots, n\}} is the union of the
+closed out-neighbourhoods of its points, each of which lies inside it, so it
+is open in \eqn{\tau^+}; in the same way the initial segment
+\eqn{\{1, \ldots, k\}} is open in \eqn{\tau^-}; and the two segments
+partition \eqn{V}. On the results of \code{\link[=generate_bitopology]{generate_bitopology()}} the check
+therefore carries no information about the series: it answers
+\code{FALSE}, with a witness found by the search (the segments
+\eqn{\{n\}} and \eqn{\{1, \ldots, n-1\}} are always one, but the search
+can return another). It can answer
+\code{TRUE} on digraphs with cycles, whose topologies are computed with
+\code{\link[=generate_topology]{generate_topology()}}.
 }
+\section{Methodological notes}{
+
+\code{irreversibility_components} and \code{asymmetry_direction} are
+descriptive statistics of the pair of topologies of one series. By the
+time-reversal theorem T1 (see \code{\link[=generate_bitopology]{generate_bitopology()}}), reading the series
+backwards with its instants reflected leaves \eqn{I_C} unchanged and
+changes the sign of \eqn{D}, so both vanish on a palindrome observed on a
+palindromic grid. Neither proves anything about the reversibility of the
+process that generated the series, and a positive or negative \eqn{D} is
+not a prediction of any particular shape of the series. \eqn{I_C} compares
+counts: two different partitions can have the same number of components.
+
+The connected components are exact whether or not a base was truncated;
+the base sizes and the gains are not reported for a truncated base, because
+the number of sets found before the cut is only a lower bound. Up to
+version 0.2.0 the function also returned \code{irreversibility_base}, the
+normalized difference of the two base sizes, which the theorem above makes
+identically zero; it was removed in 0.3.0.
+}
+
+\section{Dependencies}{
+
+Base R only.
+}
+
 \examples{
-series <- c(3, 1, 4, 1, 5, 9, 2, 6)
-g <- horizontal_visibility_graph(series, directed = TRUE)
+g <- horizontal_visibility_graph(c(3, 1, 4, 1, 5, 9, 2, 6), directed = TRUE)
 tf <- generate_topology(g$out_adjacency, g$n, max_open_sets = 0L)
 tb <- generate_topology(g$in_adjacency, g$n, max_open_sets = 0L)
 inv <- bitopology_invariants(tf, tb, g$n)
 inv$asymmetry_direction
+inv$forward_base_size == inv$backward_base_size
 
+small <- generate_bitopology(c(3, 1, 4))
+small$invariants$pairwise
 }
 \references{
-Kelly, J. C. (1963). Bitopological spaces. \emph{Proceedings of the
-London Mathematical Society}, 3(1), 71-89.
+Ganter, B., & Wille, R. (1999). Formal concept analysis: Mathematical
+foundations. Springer. https://doi.org/10.1007/978-3-642-59830-2
 
-Ganter, B., & Wille, R. (1999). \emph{Formal Concept Analysis:
-Mathematical Foundations}. Springer.
+Kelly, J. C. (1963). Bitopological spaces. Proceedings of the London
+Mathematical Society, s3-13(1), 71-89. https://doi.org/10.1112/plms/s3-13.1.71
 
-Birkhoff, G. (1940). \emph{Lattice Theory}. American Mathematical
-Society.
+Tarjan, R. (1972). Depth-first search and linear graph algorithms. SIAM
+Journal on Computing, 1(2), 146-160. https://doi.org/10.1137/0201010
 }
 \seealso{
-\code{\link{generate_bitopology}} for the complete pipeline.
+\code{\link[=generate_bitopology]{generate_bitopology()}} for the complete pipeline and theorem T1.
 }

@@ -5,7 +5,7 @@ test_that("generate_topology produces valid topology from simple graph", {
   adj <- list(c(2L), c(1L, 3L), c(2L))
   topo <- generate_topology(adj, 3L, verify_axioms = TRUE)
 
-  expect_true(topo$complete)
+  expect_true(topo$topology_complete)
   expect_true(topo$axioms_ok)
   expect_true(topo$n_open_sets >= 4L)
 
@@ -99,7 +99,7 @@ test_that("max_open_sets limits enumeration gracefully", {
                  "already determined to be disconnected")
   expect_true(is.logical(topo$connected))
   # With a tight limit, enumeration should be incomplete
-  expect_false(topo$complete)
+  expect_false(topo$topology_complete)
 })
 
 
@@ -163,4 +163,24 @@ test_that("complete_topology works for small data", {
 test_that("complete_topology validates input", {
   expect_error(complete_topology("text"), "numeric")
   expect_error(complete_topology(1), "at least 2")
+})
+
+test_that("the axiom check covers unions and intersections on every engine", {
+  # Template engine (n <= 192).
+  topo <- generate_topology(list(2L, c(1L, 3L), 2L), 3L, verify_axioms = TRUE)
+  expect_true(topo$topology_complete)
+  expect_true(topo$axioms_ok)
+  # Runtime engine (n > 192): the complete graph gives the indiscrete topology.
+  n <- 200L
+  adj <- lapply(seq_len(n), function(v) setdiff(seq_len(n), v))
+  full <- generate_topology(adj, n, verify_axioms = TRUE)
+  expect_identical(full$n_open_sets, 2L)
+  expect_true(full$axioms_ok)
+  # Runtime Alexandrov engine: the chain 1 -> 2 -> ... -> 200 gives the empty
+  # set and the 200 suffixes.
+  chain <- c(lapply(seq_len(n - 1L), function(v) v + 1L), list(integer(0)))
+  alex <- generate_alexandrov_topology(chain, n, max_open_sets = 1000L,
+                                       verify_axioms = TRUE)
+  expect_identical(alex$n_open_sets, n + 1L)
+  expect_true(alex$axioms_ok)
 })

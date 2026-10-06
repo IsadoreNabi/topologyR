@@ -2,22 +2,43 @@
 % Please edit documentation in R/topology_functions.R
 \name{calculate_topology}
 \alias{calculate_topology}
-\title{Calculate topology base size for a given threshold}
+\title{Size of the threshold-neighbourhood base for one radius}
 \usage{
 calculate_topology(data, threshold)
 }
 \arguments{
-\item{data}{Numeric vector to analyze.}
+\item{data}{Numeric vector with at least two elements and no missing
+values. No default.}
 
-\item{threshold}{Numeric value for the threshold parameter. Must be
-non-negative.}
+\item{threshold}{Non-negative numeric scalar, the radius. No default.}
 }
 \value{
-\code{integer} scalar. The number of sets in the topological base.
+An \code{integer} scalar: the number of distinct sets among the
+empty set, the whole index set and the non-empty intersections of two
+neighbourhoods (see \code{\link[=analyze_topology_factors]{analyze_topology_factors()}} for why these are all the
+finite intersections).
 }
 \description{
-Calculate topology base size for a given threshold
+Builds the threshold neighbourhoods of the data with a given radius and
+returns the number of sets in the base they generate, counted as in
+\code{\link[=analyze_topology_factors]{analyze_topology_factors()}}.
 }
+\section{Methodological notes}{
+
+The count includes the empty set and the whole index set. Missing values
+are rejected; up to version 0.3.0 they were silently dropped from every
+neighbourhood.
+}
+
+\section{Dependencies}{
+
+Base R only.
+}
+
 \examples{
+set.seed(1)
 calculate_topology(rnorm(30), threshold = 0.5)
+}
+\seealso{
+\code{\link[=analyze_topology_factors]{analyze_topology_factors()}}, \code{\link[=calculate_thresholds]{calculate_thresholds()}}.
 }

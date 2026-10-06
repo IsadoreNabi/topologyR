@@ -1,0 +1,12 @@
+# Build and check products
+*.o
+*.so
+*.dll
+*.tar.gz
+*.Rcheck/
+src/symbols.rds
+
+# R session files
+.Rhistory
+.RData
+.Rproj.user/

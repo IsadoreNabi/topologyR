@@ -2,32 +2,47 @@
 % Please edit documentation in R/topology_functions.R
 \name{simplest_topology}
 \alias{simplest_topology}
-\title{Create the discrete topology (completely disconnected)}
+\title{The discrete topology on n points}
 \usage{
 simplest_topology(data)
 }
 \arguments{
-\item{data}{Numeric vector containing the data points.}
+\item{data}{Vector with at least one element; only its length is used.
+No default.}
 }
 \value{
 A \code{list} with:
 \describe{
-\item{subbase}{List of singleton sets.}
-\item{base}{Same as subbase (singletons are already a base).}
+\item{subbase}{List of the \eqn{n} singletons.}
+\item{base}{The same list: the singletons form the minimal base.}
 \item{topology_type}{Character: \code{"discrete"}.}
-\item{n}{Integer. Number of elements.}
-\item{connected}{Logical. Always \code{FALSE} for \eqn{n \geq 2}
-(the discrete topology is maximally disconnected).}
+\item{n}{Integer, the number of points.}
+\item{connected}{Logical: \code{TRUE} only when \eqn{n = 1}; every
+singleton is open and closed, so two or more points are
+disconnected.}
 }
 }
 \description{
-Generates the discrete topology on \code{n} elements, where the base
-consists of all singleton sets \eqn{\{\{1\}, \{2\}, \ldots, \{n\}\}}.
-The full topology is the power set \eqn{2^V}, but only the base is
-returned explicitly (enumerating \eqn{2^n} sets is impractical for
-large \code{n}).
+Returns the discrete topology on the indices of the data, the finest
+topology on a set, in which every subset is open. Only the singleton base
+is returned, because the full topology has \eqn{2^n} open sets.
 }
+\section{Methodological notes}{
+
+The discrete topology is a reference point: every topology produced by
+the package is coarser than or equal to it.
+}
+
+\section{Dependencies}{
+
+Base R only.
+}
+
 \examples{
 result <- simplest_topology(c(1, 2, 3, 4, 5))
 result$connected
+}
+\seealso{
+\code{\link[=complete_topology]{complete_topology()}} for the opposite extreme, the indiscrete
+topology.
 }

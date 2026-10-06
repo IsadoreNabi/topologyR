@@ -1,7 +1,30 @@
 #include <Rcpp.h>
 #include <vector>
 #include <stack>
-#include <limits>
+#include "exact_predicate.h"
+
+// The comparisons of both criteria and the filter of the exact predicate
+// assume IEEE 754 double arithmetic: 53 significant bits, subnormal numbers
+// handled as the standard prescribes, and no floating-point trap. Each entry
+// point holds the non-stop mode while it computes (NonStopFloatingPoint, which
+// restores the caller's environment at exit) and refuses to run when the mode
+// cannot be set or when a flush-to-zero or denormals-are-zero mode, or the x87
+// precision control set to 24 bits, which some libraries switch on, would
+// silently change the graphs.
+static void require_ieee_environment(const exactpred::NonStopFloatingPoint& non_stop) {
+  if (!non_stop.held()) {
+    Rcpp::stop("The floating-point environment could not be set to the IEEE "
+               "754 non-stop mode, without traps; topologyR's visibility "
+               "graphs require it.");
+  }
+  if (!exactpred::ieee_double_environment()) {
+    Rcpp::stop("The floating-point environment does not provide IEEE 754 "
+               "double arithmetic (subnormal numbers are flushed to zero, or "
+               "operations keep fewer than 53 significant bits, a mode that "
+               "some library has switched on); topologyR's visibility graphs "
+               "require IEEE 754 double arithmetic.");
+  }
+}
 
 // ==========================================================================
 // Horizontal Visibility Graph (HVG) — O(n) stack-based algorithm
@@ -25,6 +48,8 @@
 
 // [[Rcpp::export]]
 Rcpp::List hvg_cpp(Rcpp::NumericVector y) {
+  exactpred::NonStopFloatingPoint non_stop;
+  require_ieee_environment(non_stop);
   int n = y.size();
   if (n < 2) {
     return Rcpp::List::create(
@@ -73,38 +98,44 @@ Rcpp::List hvg_cpp(Rcpp::NumericVector y) {
 
 
 // ==========================================================================
-// Natural Visibility Graph (NVG) — O(n log n) expected, O(n^2) worst case
+// Natural Visibility Graph (NVG) -- O(n^2) decisions in the worst case,
+// O(n log n) when the maxima split the intervals in bounded proportions
 //
 // Two observations (t_a, y_a) and (t_b, y_b) with t_a < t_b are connected
-// iff every intermediate observation (t_c, y_c) satisfies:
-//   y_c < y_a + (y_b - y_a) * (t_c - t_a) / (t_b - t_a)
+// iff every intermediate observation (t_c, y_c) lies strictly below the
+// straight segment joining them:
+//   y_c (t_b - t_a) < y_a (t_b - t_c) + y_b (t_c - t_a).
+// The instants t are any strictly increasing doubles; the R wrapper passes
+// 1, ..., n when the caller gives none.
 //
-// Geometrically: a straight line between the two points clears all
-// intermediate points (strict inequality).
+// Algorithm: divide and conquer on the global maximum. The three facts it
+// relies on hold for arbitrary strictly increasing instants:
+//   (i)  If p maximizes y on [lo, hi] and a < p < b, the chord from a to b
+//        takes at t_p the convex combination
+//        (y_a (t_b - t_p) + y_b (t_p - t_a)) / (t_b - t_a) <= max(y_a, y_b)
+//        <= y_p, so p is not strictly below it: no edge crosses p.
+//   (ii) For j < p, every k in (j, p) is strictly below the chord from j to p
+//        iff the slope from j to p is smaller than the slope from every such k
+//        to p. The smallest of those slopes belongs to the last vertex found
+//        visible, m, so j is visible iff there is no intermediate vertex or m
+//        lies strictly below the chord from j to p. Symmetrically on the
+//        right: j > p is visible iff m lies strictly below the chord from p
+//        to j.
+//   (iii) Edges inside each half depend only on the points of that half.
+// Each visibility decision is therefore the sign of one chord condition,
+// evaluated exactly on the input doubles by exactpred::chord_below_sign(), so
+// the edge set is the natural visibility graph of the numbers received,
+// independent of rounding. Ties are handled by the strict inequality: a
+// point on the chord blocks.
 //
-// Algorithm: divide-and-conquer on the global maximum.
-// Key property: the maximum point in [lo, hi] BLOCKS all cross-edges
-// between the left and right halves (proof: the line between any left
-// point l and right point r at position p has value at most
-// max(y_l, y_r) <= y_p, violating the strict inequality).
-// Therefore all edges are either:
-//   (a) from the pivot to visible points (found by slope scan), or
-//   (b) internal to the left/right halves (found recursively).
-//
-// The slope scan from pivot p looking left uses:
-//   theta(j) = (y_p - y_j) / (p - j)
-// Point j is visible from p iff theta(j) < min(theta(k)) for all k
-// between j and p. This reduces to tracking the running minimum.
-//
-// Reference: Lacasa, L., Luque, B., Ballesteros, F., Luque, J., &
-// Nuno, J.C. (2008). From time series to complex networks: The
-// visibility graph. PNAS, 105(13), 4972-4975.
+// Reference: Lacasa, L., Luque, B., Ballesteros, F., Luque, J., & Nuño, J. C.
+// (2008). From time series to complex networks: The visibility graph.
+// Proceedings of the National Academy of Sciences, 105(13), 4972-4975.
 // ==========================================================================
 
 namespace {
 
-// Find index of maximum value in y[lo..hi] (inclusive).
-// Returns leftmost maximum for determinism.
+// Index of the leftmost maximum of y[lo..hi] (inclusive).
 int find_max_idx(const double* y, int lo, int hi) {
   int idx = lo;
   for (int i = lo + 1; i <= hi; i++) {
@@ -115,60 +146,54 @@ int find_max_idx(const double* y, int lo, int hi) {
   return idx;
 }
 
-void nvg_recursive(const double* y, int lo, int hi,
+void nvg_recursive(const double* t, const double* y, int lo, int hi,
                    std::vector<int>& from_vec, std::vector<int>& to_vec) {
   if (lo >= hi) return;
 
-  // Base case: two adjacent points are always mutually visible
+  // Two adjacent points are always mutually visible
   if (hi - lo == 1) {
     from_vec.push_back(lo + 1);
     to_vec.push_back(hi + 1);
     return;
   }
 
-  // Find pivot (global maximum in [lo, hi])
   int p = find_max_idx(y, lo, hi);
 
-  // Left scan: from pivot looking left, find all visible points.
-  // theta(j) = (y_p - y_j) / (p - j) represents the "drop rate".
-  // A point j is visible iff its drop rate is less than all points
-  // between j and p (i.e., less than the running minimum).
-  {
-    double min_theta = std::numeric_limits<double>::infinity();
-    for (int j = p - 1; j >= lo; j--) {
-      double theta = (y[p] - y[j]) / static_cast<double>(p - j);
-      if (theta < min_theta) {
-        from_vec.push_back(j + 1);
-        to_vec.push_back(p + 1);
-        min_theta = theta;
-      }
+  // Left scan: m is the last vertex found visible from p
+  int m = -1;
+  for (int j = p - 1; j >= lo; j--) {
+    if (m < 0 ||
+        exactpred::chord_below_sign(t[j], y[j], t[p], y[p], t[m], y[m]) > 0) {
+      from_vec.push_back(j + 1);
+      to_vec.push_back(p + 1);
+      m = j;
     }
   }
 
-  // Right scan: symmetric to left scan
-  {
-    double min_theta = std::numeric_limits<double>::infinity();
-    for (int j = p + 1; j <= hi; j++) {
-      double theta = (y[p] - y[j]) / static_cast<double>(j - p);
-      if (theta < min_theta) {
-        from_vec.push_back(p + 1);
-        to_vec.push_back(j + 1);
-        min_theta = theta;
-      }
+  // Right scan, symmetric
+  m = -1;
+  for (int j = p + 1; j <= hi; j++) {
+    if (m < 0 ||
+        exactpred::chord_below_sign(t[p], y[p], t[j], y[j], t[m], y[m]) > 0) {
+      from_vec.push_back(p + 1);
+      to_vec.push_back(j + 1);
+      m = j;
     }
   }
 
-  // Recurse on left and right halves (no cross-edges exist)
-  nvg_recursive(y, lo, p - 1, from_vec, to_vec);
-  nvg_recursive(y, p + 1, hi, from_vec, to_vec);
+  nvg_recursive(t, y, lo, p - 1, from_vec, to_vec);
+  nvg_recursive(t, y, p + 1, hi, from_vec, to_vec);
 }
 
 } // anonymous namespace
 
 
 // [[Rcpp::export]]
-Rcpp::List nvg_cpp(Rcpp::NumericVector y) {
+Rcpp::List nvg_cpp(Rcpp::NumericVector y, Rcpp::NumericVector t) {
+  exactpred::NonStopFloatingPoint non_stop;
+  require_ieee_environment(non_stop);
   int n = y.size();
+  if (t.size() != n) Rcpp::stop("'y' and 't' must have the same length.");
   if (n < 2) {
     return Rcpp::List::create(
       Rcpp::Named("from") = Rcpp::IntegerVector(),
@@ -178,14 +203,45 @@ Rcpp::List nvg_cpp(Rcpp::NumericVector y) {
 
   std::vector<int> from_vec;
   std::vector<int> to_vec;
-  // Expected number of edges: O(n log n) for NVG on random series
   from_vec.reserve(n * 3);
   to_vec.reserve(n * 3);
 
-  nvg_recursive(y.begin(), 0, n - 1, from_vec, to_vec);
+  nvg_recursive(t.begin(), y.begin(), 0, n - 1, from_vec, to_vec);
 
   return Rcpp::List::create(
     Rcpp::Named("from") = Rcpp::wrap(from_vec),
     Rcpp::Named("to")   = Rcpp::wrap(to_vec)
   );
+}
+
+
+// Vectorized access to the exact chord predicate, for the test suite and for
+// external verification. Not exported to users.
+// [[Rcpp::export]]
+Rcpp::IntegerVector chord_below_sign_cpp(Rcpp::NumericVector ta,
+                                         Rcpp::NumericVector xa,
+                                         Rcpp::NumericVector tb,
+                                         Rcpp::NumericVector xb,
+                                         Rcpp::NumericVector tk,
+                                         Rcpp::NumericVector xk) {
+  exactpred::NonStopFloatingPoint non_stop;
+  require_ieee_environment(non_stop);
+  R_xlen_t n = ta.size();
+  if (xa.size() != n || tb.size() != n || xb.size() != n ||
+      tk.size() != n || xk.size() != n) {
+    Rcpp::stop("all arguments must have the same length.");
+  }
+  Rcpp::IntegerVector out(n);
+  for (R_xlen_t i = 0; i < n; i++) {
+    if (!std::isfinite(ta[i]) || !std::isfinite(xa[i]) ||
+        !std::isfinite(tb[i]) || !std::isfinite(xb[i]) ||
+        !std::isfinite(tk[i]) || !std::isfinite(xk[i])) {
+      Rcpp::stop("all arguments must be finite.");
+    }
+  }
+  for (R_xlen_t i = 0; i < n; i++) {
+    out[i] = exactpred::chord_below_sign(ta[i], xa[i], tb[i], xb[i],
+                                         tk[i], xk[i]);
+  }
+  return out;
 }

@@ -10,7 +10,17 @@
 //   2. Base (closure under finite intersections, wavefront)
 //      with max_base_sets safety limit
 //   3. Connectivity via specialization preorder on the base (exact,
-//      polynomial, no topology enumeration needed)
+//      polynomial, no topology enumeration needed). Exact even when the
+//      base closure was truncated: the base always contains the whole
+//      subbase, and for any family F with subbase <= F <= topology,
+//      "every member of F containing x contains y" holds iff y lies in the
+//      minimal open set of x.
+//
+// The subbase uses the closed neighbourhoods N[v] = {v} U N(v). Nada, El
+// Atik and Atef (2018) take the post classes of the adjacency relation,
+// which for a loopless graph are the open neighbourhoods N(v); topologyR
+// uses the closed variant, so that every vertex lies in its own subbase
+// element.
 //   4. Topology enumeration (optional, closure under unions, with
 //      max_open_sets safety limit)
 // ======================================================================
@@ -51,7 +61,7 @@ static Rcpp::List engine_impl(
   for (int v = 0; v < n_elements; v++) {
     Rcpp::IntegerVector neighbors = adjacency[v];
     Ops::zero(scratch);
-    bs_set_bit(scratch, v);  // N[v]: closed neighborhood (Nada et al. 2018)
+    bs_set_bit(scratch, v);  // N[v] = {v} U N(v), the closed neighbourhood
     for (int i = 0; i < neighbors.size(); i++) {
       int idx = neighbors[i] - 1;
       if (idx >= 0 && idx < n_elements) bs_set_bit(scratch, idx);
@@ -264,12 +274,22 @@ static Rcpp::List engine_impl(
       frontier_union = std::move(new_frontier);
     }
 
-    topo_complete = !exceeded && (frontier_union.size() == 0);
+    // The union closure is the topology only if the base it closes is the
+    // whole intersection closure of the subbase.
+    topo_complete = !exceeded && (frontier_union.size() == 0) && base_complete;
 
+    // The axioms of a topology on a finite set: the empty set and the whole
+    // set are members, and the family is closed under the union and the
+    // intersection of any two members (pairwise closure gives closure under
+    // every finite, hence every, union and intersection).
     if (verify_axioms && topo_complete) {
       axioms_checked = true;
       int tau_n = topology_vec.size();
       uint64_t ax_scratch[W];
+      if (!tau_set.contains(empty_set) || !tau_set.contains(full_set)) {
+        axioms_ok = false;
+        axiom_failure_msg = "The empty set or the whole set is not in the topology.";
+      }
       for (int i = 0; i < tau_n && axioms_ok; i++) {
         for (int j = i + 1; j < tau_n && axioms_ok; j++) {
           Ops::band(ax_scratch, topology_vec.get(i), topology_vec.get(j));
@@ -278,6 +298,14 @@ static Rcpp::List engine_impl(
             axiom_failure_msg =
               "Intersection of two open sets not in topology. "
               "Bug in base construction.";
+            break;
+          }
+          Ops::bor(ax_scratch, topology_vec.get(i), topology_vec.get(j));
+          if (!tau_set.contains(ax_scratch)) {
+            axioms_ok = false;
+            axiom_failure_msg =
+              "Union of two open sets not in topology. "
+              "Bug in the union closure.";
           }
         }
       }
@@ -307,8 +335,8 @@ static Rcpp::List engine_impl(
     Rcpp::Named("base") = base_list,
     Rcpp::Named("base_complete") = base_complete,
     Rcpp::Named("connected") = check_connected
-      ? Rcpp::wrap(connected)
-      : Rcpp::wrap(NA_LOGICAL),
+      ? Rcpp::LogicalVector::create(connected)
+      : Rcpp::LogicalVector::create(NA_LOGICAL),
     Rcpp::Named("components") = comp_list,
     Rcpp::Named("iterations_base") = iter_base
   );
@@ -320,7 +348,7 @@ static Rcpp::List engine_impl(
     }
     result["topology"] = topo_list;
     result["n_open_sets"] = topology_vec.size();
-    result["complete"] = topo_complete;
+    result["topology_complete"] = topo_complete;
     result["iterations_topo"] = iter_topo;
 
     if (axioms_checked) {
@@ -332,7 +360,7 @@ static Rcpp::List engine_impl(
   } else {
     result["topology"] = R_NilValue;
     result["n_open_sets"] = NA_INTEGER;
-    result["complete"] = false;
+    result["topology_complete"] = Rcpp::LogicalVector::create(NA_LOGICAL);
     result["iterations_topo"] = 0;
   }
 
@@ -408,7 +436,7 @@ static Rcpp::List engine_runtime(
   for (int v = 0; v < n_elements; v++) {
     Rcpp::IntegerVector nb = adjacency[v];
     std::memset(scratch.data(), 0, W*8);
-    bs_set_bit(scratch.data(), v);  // N[v]: closed neighborhood (Nada et al. 2018)
+    bs_set_bit(scratch.data(), v);  // N[v] = {v} U N(v), the closed neighbourhood
     for (int i = 0; i < nb.size(); i++) { int idx = nb[i]-1; if (idx>=0 && idx<n_elements) bs_set_bit(scratch.data(), idx); }
     if (subbase_set.insert(scratch.data())) subbase.push(scratch.data());
   }
@@ -490,12 +518,16 @@ static Rcpp::List engine_runtime(
       }
       fu=std::move(nf);
     }
-    topo_complete=!exceeded&&(fu.size()==0);
+    topo_complete=!exceeded&&(fu.size()==0)&&base_complete;
     if (verify_axioms&&topo_complete) { axioms_checked=true; int tn=topology_vec.size();
       std::vector<uint64_t> ax(W);
+      if (!tau_set.contains(empty_set.data()) || !tau_set.contains(full_set.data())) {
+        axioms_ok=false; axiom_fail="The empty set or the whole set is not in the topology."; }
       for (int i=0;i<tn&&axioms_ok;i++) for (int j=i+1;j<tn&&axioms_ok;j++) {
         rtops::band(ax.data(),topology_vec.get(i),topology_vec.get(j),W);
-        if (!tau_set.contains(ax.data())) { axioms_ok=false; axiom_fail="Intersection of two open sets not in topology."; }
+        if (!tau_set.contains(ax.data())) { axioms_ok=false; axiom_fail="Intersection of two open sets not in topology."; break; }
+        rtops::bor(ax.data(),topology_vec.get(i),topology_vec.get(j),W);
+        if (!tau_set.contains(ax.data())) { axioms_ok=false; axiom_fail="Union of two open sets not in topology."; }
       }
     }
   }
@@ -507,14 +539,14 @@ static Rcpp::List engine_runtime(
   Rcpp::List result = Rcpp::List::create(
     Rcpp::Named("subbase")=sl, Rcpp::Named("base")=bl,
     Rcpp::Named("base_complete")=base_complete,
-    Rcpp::Named("connected")=check_connected?Rcpp::wrap(connected):Rcpp::wrap(NA_LOGICAL),
+    Rcpp::Named("connected")=check_connected?Rcpp::LogicalVector::create(connected):Rcpp::LogicalVector::create(NA_LOGICAL),
     Rcpp::Named("components")=cl, Rcpp::Named("iterations_base")=iter_base);
   if (enumerate_topology) {
     Rcpp::List tl(topology_vec.size()); for (int i=0;i<topology_vec.size();i++) tl[i]=decode_bitset(topology_vec.get(i),W,n_elements);
     result["topology"]=tl; result["n_open_sets"]=topology_vec.size();
-    result["complete"]=topo_complete; result["iterations_topo"]=iter_topo;
+    result["topology_complete"]=topo_complete; result["iterations_topo"]=iter_topo;
     if (axioms_checked) { result["axioms_ok"]=axioms_ok; if (!axioms_ok) result["axiom_failure"]=axiom_fail; }
-  } else { result["topology"]=R_NilValue; result["n_open_sets"]=NA_INTEGER; result["complete"]=false; result["iterations_topo"]=0; }
+  } else { result["topology"]=R_NilValue; result["n_open_sets"]=NA_INTEGER; result["topology_complete"]=Rcpp::LogicalVector::create(NA_LOGICAL); result["iterations_topo"]=0; }
   return result;
 }
 

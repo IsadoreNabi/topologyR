@@ -2,104 +2,184 @@
 % Please edit documentation in R/directed_topology.R
 \name{generate_bitopology}
 \alias{generate_bitopology}
-\title{Generate a bitopological analysis from a time series}
+\title{Bitopological analysis of a time series}
 \usage{
 generate_bitopology(
   series,
   graph_type = c("hvg", "nvg"),
   max_open_sets = 0L,
   max_base_sets = 100000L,
-  alexandrov = TRUE
+  alexandrov = TRUE,
+  times = NULL
 )
 }
 \arguments{
-\item{series}{Numeric vector representing the time series.}
+\item{series}{Numeric vector with at least two observations and no
+\code{NA}, \code{NaN} or infinite values. No default.}
 
-\item{graph_type}{Character. Either \code{"hvg"} (Horizontal Visibility
-Graph) or \code{"nvg"} (Natural Visibility Graph). Default: \code{"hvg"}.}
+\item{graph_type}{Character scalar: \code{"hvg"} (default) for the
+horizontal visibility graph or \code{"nvg"} for the natural one.}
 
-\item{max_open_sets}{Integer. Maximum open sets to enumerate per topology
-(default: 0, skip enumeration). Required for pairwise connectedness check.}
+\item{max_open_sets}{Non-negative integer scalar (default 0, no
+enumeration), passed to \code{\link[=generate_topology]{generate_topology()}} and
+\code{\link[=generate_alexandrov_topology]{generate_alexandrov_topology()}}. The pairwise-connectedness check of
+\code{\link[=bitopology_invariants]{bitopology_invariants()}} does not need the enumeration.}
 
-\item{max_base_sets}{Integer. Maximum base elements during intersection
-closure for the Nada topologies (default: 100,000).}
+\item{max_base_sets}{Positive integer scalar (default 100,000), passed to
+\code{\link[=generate_topology]{generate_topology()}}.}
 
-\item{alexandrov}{Logical. Whether to also compute the Alexandrov topology
-for resolution comparison (default: \code{TRUE}).}
+\item{alexandrov}{Logical scalar (default \code{TRUE}): whether to compute
+the Alexandrov topology too.}
+
+\item{times}{\code{NULL} (default) for the instants \eqn{1, \ldots, n}, or
+a numeric, \code{Date} or date-time vector of finite, strictly increasing
+instants of the same length as \code{series}. It matters only for the
+natural graph.}
 }
 \value{
-A \code{list} with:
-\describe{
-\item{graph}{The directed visibility graph (output of
-\code{\link{horizontal_visibility_graph}} or
-\code{\link{natural_visibility_graph}} with \code{directed = TRUE}).}
-\item{undirected}{The undirected Nada topology
-(output of \code{\link{generate_topology}}).}
-\item{forward}{The forward Nada topology \eqn{\tau^+}.}
-\item{backward}{The backward Nada topology \eqn{\tau^-}.}
-\item{alexandrov}{The Alexandrov topology \eqn{\tau_A} (if requested).}
-\item{invariants}{Bitopological invariants (output of
-\code{\link{bitopology_invariants}}).}
-}
+A \code{list} with \code{graph} (the directed visibility graph, as
+returned by \code{\link[=horizontal_visibility_graph]{horizontal_visibility_graph()}} or \code{\link[=natural_visibility_graph]{natural_visibility_graph()}}
+with \code{directed = TRUE}), \code{undirected}, \code{forward} and
+\code{backward} (results of \code{\link[=generate_topology]{generate_topology()}}), \code{alexandrov} (the
+result of \code{\link[=generate_alexandrov_topology]{generate_alexandrov_topology()}}, or \code{NULL}) and
+\code{invariants} (the result of \code{\link[=bitopology_invariants]{bitopology_invariants()}}).
 }
 \description{
-Performs a complete bitopological analysis of a time series by constructing
-directed visibility graphs and computing four topological spaces:
-\enumerate{
-\item \strong{Undirected Nada topology} \eqn{\tau}: from the symmetric
-(undirected) visibility graph (standard Nada et al. 2018).
-\item \strong{Forward Nada topology} \eqn{\tau^+}: from closed forward
-neighborhoods \eqn{N^+[v] = \{v\} \cup \{w : v \to w\}}.
-\item \strong{Backward Nada topology} \eqn{\tau^-}: from closed backward
-neighborhoods \eqn{N^-[v] = \{v\} \cup \{w : w \to v\}}.
-\item \strong{Alexandrov topology} \eqn{\tau_A}: from reachability upsets
-of the directed graph.
-}
-
-The pair \eqn{(X, \tau^+, \tau^-)} forms a \strong{bitopological space}
-(Kelly, 1963). The divergence between \eqn{\tau^+} and \eqn{\tau^-}
-quantifies temporal irreversibility: in a reversible process,
-\eqn{\tau^+ \cong \tau^-}; in an irreversible process (e.g., asymmetric
-business cycles), they diverge.
+Builds the directed visibility graph of a series (horizontal or natural, at
+equally or unequally spaced instants) and from it four topologies on the
+observations: the undirected topology \eqn{\tau} of the closed
+neighbourhoods, the forward topology \eqn{\tau^+} of the closed forward
+neighbourhoods \eqn{N^+[v] = \{v\} \cup \{w : v \to w\}}, the backward
+topology \eqn{\tau^-} of the closed backward neighbourhoods
+\eqn{N^-[v] = \{v\} \cup \{w : w \to v\}}, and optionally the Alexandrov
+topology of reachability; then computes their invariants with
+\code{\link[=bitopology_invariants]{bitopology_invariants()}}. The triple \eqn{(V, \tau^+, \tau^-)} is a
+bitopological space in the sense of Kelly (1963).
 }
 \details{
-The existing undirected engine is called three times (undirected, forward,
-backward) and the Alexandrov engine once. No new C++ code is needed for the
-forward and backward topologies: passing directed adjacency lists to the
-existing \code{\link{generate_topology}} produces the correct closed
-neighborhoods \eqn{N^+[v]} or \eqn{N^-[v]} automatically (the engine
-always adds the self-loop \eqn{v \in N[v]}).
+Every arc of a directed visibility graph goes from the earlier to the later
+observation, so the out-neighbour lists give \eqn{\tau^+} and the
+in-neighbour lists \eqn{\tau^-}; the same engine computes the three
+topologies of closed neighbourhoods. Consecutive observations always see
+each other, so the digraph contains the path \eqn{1 \to 2 \to \cdots \to n},
+reachability is the total order, and the Alexandrov topology is the same
+chain of sets \eqn{\{i, \ldots, n\}} for every series; it describes the
+class of visibility graphs and not the series, and \code{alexandrov = FALSE}
+skips it. Because every arc goes forward in time, two more comparisons are
+constant on the class: \eqn{\{n\}} is open in \eqn{\tau^+} (the last
+observation has no later neighbour) and not in \eqn{\tau^-} (the only member
+of the backward subbase that contains \eqn{n} is its closed
+in-neighbourhood, which also contains \eqn{n - 1}, since consecutive
+observations see each other), so the two topologies differ for
+every series with \eqn{n \ge 2}, a reversible one included; and the
+bitopological space is pairwise disconnected for every such series (see
+\code{\link[=bitopology_invariants]{bitopology_invariants()}}). What T1 relates is \eqn{\tau^+} of a series to
+\eqn{\tau^-} of its reversal, not \eqn{\tau^+} to \eqn{\tau^-} of the same
+series.
 
-\strong{The Alexandrov branch is constant for this input class.} Because
-consecutive observations always see each other, every directed
-visibility graph contains the path \eqn{1 \to 2 \to \dots \to n};
-reachability is therefore the total order, and the Alexandrov topology
-is the same chain of upsets \eqn{\{i, \dots, n\}} for \emph{every}
-series. It carries no information about the particular series analyzed
--- it is a property of the visibility-graph class (see the
-corresponding section in \code{\link{bitopology_invariants}}). Callers
-that consume only the Nada side can set \code{alexandrov = FALSE} and
-skip that cost; the Alexandrov branch earns its keep on general
-digraphs passed directly to
-\code{\link{generate_alexandrov_topology}}, where it does vary with
-the input.
+\strong{Theorem T1 (time reversal).} Let a series \eqn{x} be observed at
+strictly increasing instants \eqn{t}, write \eqn{\tilde{x}_i = x_{n+1-i}},
+\eqn{\tilde{t}_i = -t_{n+1-i}} (what \code{\link[=time_reverse]{time_reverse()}} returns) and
+\eqn{r(i) = n + 1 - i}. Under either visibility criterion, \eqn{\{i, j\}} is
+an edge for \eqn{(\tilde{x}, \tilde{t})} if and only if
+\eqn{\{r(i), r(j)\}} is an edge for \eqn{(x, t)}; \eqn{r} carries the closed
+forward neighbourhood of \eqn{i} for \eqn{(\tilde{x}, \tilde{t})} onto the
+closed backward neighbourhood of \eqn{r(i)} for \eqn{(x, t)}, and the
+backward one onto the forward one; hence \eqn{r} is a homeomorphism from
+\eqn{\tau^+(\tilde{x}, \tilde{t})} onto \eqn{\tau^-(x, t)} and from
+\eqn{\tau^-(\tilde{x}, \tilde{t})} onto \eqn{\tau^+(x, t)}. Consequently
+\eqn{C^+(\tilde{x}, \tilde{t}) = C^-(x, t)} and
+\eqn{C^-(\tilde{x}, \tilde{t}) = C^+(x, t)}, the two base sizes are
+exchanged, \code{asymmetry_direction}, \eqn{D = C^- - C^+}, changes sign,
+and \code{irreversibility_components},
+\eqn{I_C = |C^+ - C^-| / \max(C^+, C^-)}, is unchanged.
+
+\emph{Proof.} The horizontal criterion for \eqn{i < j} involves only the
+values strictly between them, which \eqn{r} carries onto those strictly
+between \eqn{r(j)} and \eqn{r(i)}, with the same values. For the natural
+criterion, the quantity \eqn{D(a, b, k) = x_a (t_b - t_k) + x_b (t_k - t_a) -
+x_k (t_b - t_a)} of \code{\link[=natural_visibility_graph]{natural_visibility_graph()}} computed for
+\eqn{(\tilde{x}, \tilde{t})} at \eqn{(r(b), r(a), r(k))} equals \eqn{D(a, b,
+k)} for \eqn{(x, t)}, term by term, so each condition transfers to the
+reflected pair. Arcs run from the lower index to the higher one and \eqn{r}
+inverts that order, so forward closed neighbourhoods become backward ones;
+a bijection between the subbases of two topologies that commutes with the
+point map is a homeomorphism of the topologies they generate, and it carries
+bases and connected components onto each other. \eqn{\square}
 }
+\section{Methodological notes}{
+
+\emph{What T1 says and what it does not.} T1 fixes the meaning of the sign
+of \code{asymmetry_direction}: reading the series backwards, with its
+instants reflected, changes it. When the series and the gaps between its
+instants both read the same in the two directions (a palindrome on a
+palindromic grid; with \code{times = NULL}, a palindrome), the reversed
+series is the same series up to a translation of time and the asymmetry is
+exactly zero. T1 has no converse: a non-zero asymmetry does not show that
+the process that generated the series is irreversible, and a zero asymmetry
+does not show that it is reversible. The probabilistic statement it
+supports is about laws: if the joint law of the observations together with
+their instants is invariant under the joint reversal (values read
+backwards, instants reflected), the law of \code{asymmetry_direction} is
+symmetric about zero, the mass at zero included; with
+\code{times = NULL}, or with fixed instants whose gaps read the same in
+both directions, the condition is that the law of the values equals the law
+of their reversal, and so it is for the horizontal criterion with any fixed
+instants, which it does not use. For the natural criterion with fixed
+instants whose gaps are not palindromic, reversing the values alone is
+another operation, to which this statement does not apply.
+None of this says anything about stationarity or about the generating
+process. For a statistical treatment of time
+irreversibility with visibility graphs, see Lacasa et al. (2012), who
+estimate it by the Kullback-Leibler divergence between the in- and
+out-degree distributions of the directed horizontal visibility graph.
+
+\emph{Instants.} Reversing the values over the same instants is a different
+operation as soon as the gaps between consecutive instants are not
+palindromic. The horizontal criterion does not use the instants, so for it
+the two operations give the same graphs and T1 holds for both; for the
+natural criterion T1 can fail for the reversal of the values alone: with
+the values 0, 1, 2 at the instants 0, 1, 3, it creates the edge
+\eqn{\{1, 3\}}, which neither the original series nor its reversal with
+reflected instants has; see \code{\link[=time_reverse]{time_reverse()}}. With the natural criterion the theorem holds exactly in
+the computation as well, under the hypotheses of
+\link{natural_visibility_exactness}, because the criterion is then decided
+exactly and negating the instants is exact.
+}
+
+\section{Dependencies}{
+
+\code{\link[=horizontal_visibility_graph]{horizontal_visibility_graph()}} or \code{\link[=natural_visibility_graph]{natural_visibility_graph()}},
+\code{\link[=generate_topology]{generate_topology()}}, \code{\link[=generate_alexandrov_topology]{generate_alexandrov_topology()}} and
+\code{\link[=bitopology_invariants]{bitopology_invariants()}}; the compiled engine through 'Rcpp'.
+}
+
 \examples{
 series <- c(3, 1, 4, 1, 5, 9, 2, 6)
 bt <- generate_bitopology(series, graph_type = "hvg")
 bt$invariants$forward_components
 bt$invariants$backward_components
-bt$invariants$irreversibility_components
+bt$invariants$asymmetry_direction
 
+rv <- time_reverse(series)
+generate_bitopology(rv$series, graph_type = "hvg")$invariants$asymmetry_direction
+
+t <- c(0, 1, 3, 4, 7, 8, 9, 12)
+bn <- generate_bitopology(series, graph_type = "nvg", times = t)
+rn <- time_reverse(series, t)
+bn$invariants$asymmetry_direction
+generate_bitopology(rn$series, graph_type = "nvg", times = rn$times)$invariants$asymmetry_direction
 }
 \references{
-Kelly, J. C. (1963). Bitopological spaces. \emph{Proceedings of the
-London Mathematical Society}, 3(1), 71-89.
+Kelly, J. C. (1963). Bitopological spaces. Proceedings of the London
+Mathematical Society, s3-13(1), 71-89. https://doi.org/10.1112/plms/s3-13.1.71
 
-Lacasa, L., & Toral, R. (2010). Description of stochastic and chaotic
-series using visibility graphs. \emph{Physical Review E}, 82(3), 036120.
+Lacasa, L., Nuñez, A., Roldán, É., Parrondo, J. M. R., & Luque, B. (2012).
+Time series irreversibility: A visibility graph approach. The European
+Physical Journal B, 85(6), Article 217.
+https://doi.org/10.1140/epjb/e2012-20809-8
 }
 \seealso{
-\code{\link{bitopology_invariants}} for computing invariants
-from pre-computed topologies.
+\code{\link[=bitopology_invariants]{bitopology_invariants()}}, \code{\link[=time_reverse]{time_reverse()}},
+\code{\link[=generate_topology]{generate_topology()}}, \code{\link[=generate_alexandrov_topology]{generate_alexandrov_topology()}}.
 }

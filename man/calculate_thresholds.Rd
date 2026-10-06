@@ -2,31 +2,49 @@
 % Please edit documentation in R/topology_functions.R
 \name{calculate_thresholds}
 \alias{calculate_thresholds}
-\title{Calculate multiple threshold methods for topology analysis}
+\title{Candidate radii for threshold neighbourhoods}
 \usage{
 calculate_thresholds(data)
 }
 \arguments{
-\item{data}{Numeric vector to calculate thresholds for.}
+\item{data}{Numeric vector with at least two elements and no missing
+values. No default.}
 }
 \value{
-A named \code{list} with five threshold values:
+A named \code{list} of five numeric scalars:
 \describe{
-\item{mean_diff}{Mean of absolute differences between adjacent sorted values.}
-\item{median_diff}{Median of absolute differences between adjacent sorted values.}
+\item{mean_diff}{Mean of the gaps between consecutive sorted values.}
+\item{median_diff}{Median of the gaps between consecutive sorted values.}
 \item{sd}{Standard deviation of the data.}
-\item{iqr}{IQR divided by 4.}
-\item{dbscan}{k-th nearest neighbor distance (k = ceiling(log(n))).}
+\item{iqr}{Interquartile range divided by 4.}
+\item{dbscan}{The \eqn{(k n)}-th smallest of the \eqn{n(n-1)/2}
+pairwise distances, with \eqn{k = \lceil \log n \rceil} and the
+position capped at the number of distances.}
 }
 }
 \description{
-Computes five different threshold methods for defining neighborhoods
-in threshold-based topology construction.
-
-\strong{Note:} Threshold-based methods produce metric topologies, not
-the graph-induced topologies of Nada et al. (2018). See
-\code{\link{generate_topology}} for the theoretically faithful approach.
+Computes five scales of the data that can serve as radii for the
+threshold neighbourhoods of \code{\link[=calculate_topology]{calculate_topology()}} and
+\code{\link[=visualize_topology_thresholds]{visualize_topology_thresholds()}}. They are descriptive scales, not
+estimates of an optimal radius.
 }
+\section{Methodological notes}{
+
+The \code{dbscan} entry keeps its historical name, but it is a single
+order statistic of all pairwise distances; it is not the distance from any
+observation to its \eqn{k}-th nearest neighbour.
+}
+
+\section{Dependencies}{
+
+\code{stats::dist()}, \code{stats::median()}, \code{stats::sd()} and
+\code{stats::IQR()}.
+}
+
 \examples{
+set.seed(1)
 calculate_thresholds(rnorm(100))
+}
+\seealso{
+\code{\link[=calculate_topology]{calculate_topology()}}, \code{\link[=visualize_topology_thresholds]{visualize_topology_thresholds()}}.
 }

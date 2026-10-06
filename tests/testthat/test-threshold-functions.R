@@ -65,3 +65,49 @@ test_that("is_topology_connected_manual checks coverage", {
   expect_true(is_topology_connected_manual(list(c(1, 2, 3), c(3, 4, 5))))
   expect_false(is_topology_connected_manual(list(c(1, 2), c(4, 5))))
 })
+
+# ---- 0.4.0: what the legacy functions compute, against independent referents ----
+
+pairwise_intersections <- function(x, h) {
+  nb <- lapply(seq_along(x), function(i) which(abs(x - x[i]) <= h))
+  out <- list()
+  for (i in seq_along(x)) for (j in i:length(x)) {
+    s <- intersect(nb[[i]], nb[[j]])
+    if (length(s)) out <- c(out, list(sort(s)))
+  }
+  unique(out)
+}
+
+test_that("the size columns of analyze_topology_factors describe the neighbourhood intersections", {
+  set.seed(4104)
+  x <- stats::rnorm(25)
+  res <- analyze_topology_factors(x, factors = c(1, 3, 9), plot = FALSE)
+  for (r in seq_len(nrow(res))) {
+    inter <- pairwise_intersections(x, stats::IQR(x) / res$factor[r])
+    expect_identical(res$max_set_size[r], max(lengths(inter)))
+    expect_identical(res$min_set_size[r], min(lengths(inter)))
+    expect_identical(res$base_size[r],
+                     length(unique(c(list(integer(0), seq_along(x)), inter))))
+    expect_gte(res$min_set_size[r], 1L)
+  }
+})
+
+test_that("calculate_topology counts the empty set, the whole set and the intersections", {
+  set.seed(4105)
+  x <- stats::rnorm(15)
+  inter <- pairwise_intersections(x, 0.4)
+  expect_identical(calculate_topology(x, 0.4),
+                   length(unique(c(list(integer(0), seq_along(x)), inter))))
+  expect_error(calculate_topology(c(1, NA, 3), 0.4), "NA")
+  expect_error(analyze_topology_factors(1:5, factors = c(1, -2)), "positive")
+})
+
+test_that("the documented counterexamples of the legacy connectivity checks hold", {
+  connected_tau <- list(integer(0), 3L, c(1L, 3L), c(2L, 3L), 1:3)
+  expect_true(is_topology_connected_exact(connected_tau, 3L)$connected)
+  expect_false(is_topology_connected2(list(c(1L, 3L), c(2L, 3L))))
+  discrete <- list(integer(0), 1L, 2L, c(1L, 2L))
+  expect_false(is_topology_connected_exact(discrete, 2L)$connected)
+  expect_true(is_topology_connected(discrete))
+  expect_true(is_topology_connected2(discrete))
+})

@@ -2,32 +2,45 @@
 % Please edit documentation in R/topology_functions.R
 \name{complete_topology}
 \alias{complete_topology}
-\title{Create a complete-graph topology from data}
+\title{The topology induced by the complete graph}
 \usage{
 complete_topology(data, verify_axioms = FALSE)
 }
 \arguments{
-\item{data}{Numeric vector containing the data points. Length must be
-between 2 and 64.}
+\item{data}{Numeric vector with at least two elements and no missing
+values; only its length is used. No default.}
 
-\item{verify_axioms}{Logical. Whether to verify topology axioms
-(default: \code{FALSE}).}
+\item{verify_axioms}{Logical scalar passed to \code{\link[=generate_topology]{generate_topology()}}.
+Default \code{FALSE}.}
 }
 \value{
-A \code{list} with the same structure as \code{\link{generate_topology}}.
+The \code{list} returned by \code{\link[=generate_topology]{generate_topology()}}: base \{V\},
+two open sets when enumerated, one component.
 }
 \description{
-Constructs a topology from the complete graph on the data points.
-In the complete graph, every vertex is a neighbor of every other vertex,
-so each neighborhood is \eqn{N(v) = V \setminus \{v\}}. The resulting
-topology is generated using the fixed-point closure algorithm.
-
-\strong{Note:} The complete graph produces trivial neighborhoods
-(all vertices except self). For meaningful topological structure,
-use visibility graphs with \code{\link{generate_topology}}.
+Runs \code{\link[=generate_topology]{generate_topology()}} on the complete graph over the indices of the
+data. Every closed neighbourhood of the complete graph is the whole index
+set, so the result is the indiscrete topology, whose only open sets are the
+empty set and the whole set, and the space is connected.
 }
+\section{Methodological notes}{
+
+The construction uses closed neighbourhoods \eqn{N[v] = \{v\} \cup N(v)},
+and in the complete graph \eqn{N[v] = V} for every vertex. The result is a
+reference point: the coarsest topology on the set.
+}
+
+\section{Dependencies}{
+
+The compiled engine of \code{\link[=generate_topology]{generate_topology()}} (via 'Rcpp').
+}
+
 \examples{
 result <- complete_topology(c(1, 2, 3, 4, 5))
 result$n_open_sets
 result$connected
+}
+\seealso{
+\code{\link[=simplest_topology]{simplest_topology()}} for the opposite extreme, the discrete
+topology.
 }

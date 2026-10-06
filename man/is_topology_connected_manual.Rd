@@ -2,27 +2,41 @@
 % Please edit documentation in R/topology_functions.R
 \name{is_topology_connected_manual}
 \alias{is_topology_connected_manual}
-\title{Check if all elements are covered by the topology}
+\title{Check whether a family of sets covers the labels 1 to its maximum}
 \usage{
 is_topology_connected_manual(topology)
 }
 \arguments{
-\item{topology}{A list of integer vectors representing the open sets.}
+\item{topology}{A list of integer vectors (positive labels). No default.}
 }
 \value{
-\code{logical} scalar. \code{TRUE} if all elements from 1 to the
-maximum are present in at least one set.
+A \code{logical} scalar: \code{TRUE} if every integer from 1 to the
+largest label appears in some member, \code{FALSE} otherwise or if the
+family is empty.
 }
 \description{
-Checks whether every integer from 1 to the maximum value in the topology
-appears in at least one open set. This verifies \strong{coverage}
-(\eqn{\bigcup \tau = X}), not topological connectivity.
-
-\strong{Note:} A space can have full coverage and be maximally disconnected
-(e.g., the discrete topology). For connectivity, use
-\code{\link{is_topology_connected_exact}}.
+Checks whether every integer from 1 to the largest label of a family of
+sets appears in at least one member, that is, whether the family covers the
+ground set \{1, ..., max\}. Despite its name, retained from version 0.1.0,
+it does not test connectedness.
 }
+\section{Methodological notes}{
+
+Coverage is necessary for a family to be a base or a subbase of a topology
+on \{1, ..., max\}, but it says nothing about connectedness: the discrete
+topology covers its ground set and is maximally disconnected.
+}
+
+\section{Dependencies}{
+
+Base R only.
+}
+
 \examples{
-topology <- list(c(1, 2, 3), c(3, 4, 5))
-is_topology_connected_manual(topology)
+is_topology_connected_manual(list(c(1, 2, 3), c(3, 4, 5)))
+is_topology_connected_manual(list(c(1, 2), c(4, 5)))
+}
+\seealso{
+\code{\link[=is_topology_connected_exact]{is_topology_connected_exact()}} and \code{\link[=generate_topology]{generate_topology()}} for
+connectedness.
 }

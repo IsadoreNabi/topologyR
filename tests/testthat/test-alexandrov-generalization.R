@@ -60,8 +60,19 @@ test_that("index-ordered visibility graphs reproduce the 0.2.0 goldens bit for b
       max_open_sets = if (case$enumerated) 5000L else 0L
     )
     old <- case$golden
-    # Every 0.2.0 field, identical to the stored output
+    # Every 0.2.0 field, identical to the stored output. The flag 'complete'
+    # was renamed 'topology_complete' in 0.4.0, and it is NA instead of FALSE
+    # when the enumeration was not requested; the Alexandrov base is always
+    # complete, so otherwise the values coincide.
     for (f in names(old)) {
+      if (f == "complete") {
+        expected <- if (case$enumerated) old$complete else NA
+        expect_identical(new$topology_complete, expected,
+                         info = sprintf("field 'topology_complete', n=%d, %s",
+                                        case$n, case$graph_type))
+        expect_null(new$complete)
+        next
+      }
       expect_identical(new[[f]], old[[f]],
                        info = sprintf("field '%s', n=%d, %s",
                                       f, case$n, case$graph_type))
@@ -215,7 +226,7 @@ test_that("enumeration transfers through the condensation bijectively", {
   # SCC {1,2}; 5 -> {4, 1}; 3 -> 4
   out <- generate_alexandrov_topology(adj, 5L, max_open_sets = 1000L,
                                       verify_axioms = TRUE)
-  expect_true(out$complete)
+  expect_true(out$topology_complete)
   expect_true(out$axioms_ok)
   # Every enumerated open set must be an upset of the reference closure
   R <- ref_reach_matrix(adj, 5L)

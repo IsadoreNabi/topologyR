@@ -109,7 +109,7 @@ test_that("Alexandrov topology: enumeration produces correct open sets", {
 
   # Topology = {empty, {3}, {2,3}, {1,2,3}} = 4 open sets
   expect_equal(alex$n_open_sets, 4L)
-  expect_true(alex$complete)
+  expect_true(alex$topology_complete)
 })
 
 test_that("Alexandrov topology: disconnected DAG", {
@@ -129,10 +129,7 @@ test_that("Alexandrov topology: single vertex", {
   expect_true(alex$connected)
 })
 
-test_that("Alexandrov topology: complete DAG produces 1 base element", {
-  # 1->{2,3}, 2->{3}, 3->[] — all reach {1,2,3} except vertex 3
-  # reach[3]={3}, reach[2]={2,3}, reach[1]={1,2,3}
-  # Actually 3 distinct sets, not 1
+test_that("Alexandrov topology: the transitive tournament on three vertices has three base sets", {
   out_adj <- list(c(2L, 3L), 3L, integer(0))
   alex <- generate_alexandrov_topology(out_adj, 3L)
 
@@ -156,17 +153,22 @@ test_that("Alexandrov topology: star DAG (hub reaches all)", {
   expect_true(alex$connected)
 })
 
-test_that("Alexandrov base is always subset of Nada base (resolution hierarchy)", {
-  series <- c(3, 1, 4, 1, 5, 9, 2, 6)
-  g <- horizontal_visibility_graph(series, directed = TRUE)
-
-  alex <- generate_alexandrov_topology(g$out_adjacency, g$n)
-  nada_fwd <- generate_topology(g$out_adjacency, g$n, max_open_sets = 0L)
-
-  # Nada base size >= Alexandrov base size
-  expect_true(length(nada_fwd$base) >= length(alex$base),
-              info = paste("Nada:", length(nada_fwd$base),
-                           "Alex:", length(alex$base)))
+test_that("every reachable set is open in the forward topology (tau_A within tau+)", {
+  set.seed(4301)
+  for (type in c("hvg", "nvg")) {
+    for (k in 1:15) {
+      n <- sample(3:25, 1)
+      g <- if (type == "hvg") horizontal_visibility_graph(stats::rnorm(n), directed = TRUE)
+           else natural_visibility_graph(stats::rnorm(n), directed = TRUE)
+      alex <- generate_alexandrov_topology(g$out_adjacency, g$n)
+      nada_fwd <- generate_topology(g$out_adjacency, g$n, max_open_sets = 0L)
+      for (U in alex$base) {
+        inside <- Filter(function(B) all(B %in% U), nada_fwd$base)
+        expect_setequal(unique(unlist(inside)), U)
+      }
+      expect_gte(length(nada_fwd$base), length(alex$base))
+    }
+  }
 })
 
 test_that("Alexandrov verify_axioms passes for small example", {
@@ -195,16 +197,15 @@ test_that("Nada-forward and Nada-backward from directed graph", {
   expect_true(length(tau_bwd$base) > 0)
 })
 
-test_that("forward + backward base sizes can differ (asymmetry)", {
-  # For an asymmetric series, base sizes may differ
+test_that("forward and backward base sizes are equal on an asymmetric series (duality)", {
   series <- c(1, 2, 3, 4, 5, 1, 2, 3, 4, 5)
-  g <- horizontal_visibility_graph(series, directed = TRUE)
-  tau_fwd <- generate_topology(g$out_adjacency, g$n, max_open_sets = 0L)
-  tau_bwd <- generate_topology(g$in_adjacency, g$n, max_open_sets = 0L)
-
-  # We don't know which is larger, but both should have valid bases
-  expect_true(length(tau_fwd$base) >= 1)
-  expect_true(length(tau_bwd$base) >= 1)
+  for (type in c("hvg", "nvg")) {
+    inv <- generate_bitopology(series, graph_type = type)$invariants
+    expect_true(inv$forward_base_complete && inv$backward_base_complete)
+    expect_identical(inv$forward_base_size, inv$backward_base_size)
+    expect_identical(inv$resolution$nada_forward_base_gain,
+                     inv$resolution$nada_backward_base_gain)
+  }
 })
 
 
@@ -270,16 +271,15 @@ test_that("irreversibility index is in valid range", {
   expect_true(inv$irreversibility_components <= 1)
 })
 
-test_that("symmetric series has low irreversibility", {
-  # Palindromic series: should have similar forward/backward structure
-  series <- c(1, 3, 5, 3, 1)
-  bt <- generate_bitopology(series)
-  # For a palindrome, forward and backward should be very similar
-  expect_true(bt$invariants$irreversibility_components <= 0.5,
-              info = "Palindrome should have limited asymmetry")
+test_that("a palindrome has zero asymmetry and zero I_C, exactly", {
+  for (type in c("hvg", "nvg")) {
+    inv <- generate_bitopology(c(1, 3, 5, 3, 1), graph_type = type)$invariants
+    expect_identical(inv$asymmetry_direction, 0L)
+    expect_identical(inv$irreversibility_components, 0)
+  }
 })
 
-test_that("asymmetry_direction sign is meaningful", {
+test_that("asymmetry_direction is C- minus C+", {
   bt <- generate_bitopology(c(3, 1, 4, 1, 5, 9, 2, 6))
   inv <- bt$invariants
   # asymmetry_direction = bwd_comp - fwd_comp
@@ -301,18 +301,153 @@ test_that("resolution gain is non-negative", {
 # 6. Pairwise connectedness
 # ------------------------------------------------------------------
 
-test_that("pairwise connectedness is NA without enumeration", {
-  bt <- generate_bitopology(c(3, 1, 4, 1, 5), max_open_sets = 0L)
-  expect_true(is.na(bt$invariants$pairwise$pairwise_connected))
+# The engine warns when it enumerates a space it already found disconnected;
+# the tests below enumerate on purpose, so only that warning is muffled.
+enumerate_quietly <- function(expr) {
+  withCallingHandlers(expr, warning = function(w) {
+    if (grepl("already determined to be disconnected", conditionMessage(w))) {
+      invokeRestart("muffleWarning")
+    }
+  })
+}
+
+test_that("pairwise connectedness is decided without enumeration", {
+  y <- c(3, 1, 4, 1, 5)
+  pw <- generate_bitopology(y, max_open_sets = 0L)$invariants$pairwise
+  expect_false(pw$pairwise_connected)
+  # The witness is checked against the complete enumerations.
+  full <- enumerate_quietly(generate_bitopology(y, max_open_sets = 10000L))
+  key <- function(s) paste(sort(s), collapse = ",")
+  expect_true(key(pw$clopen_forward) %in% vapply(full$forward$topology, key, ""))
+  expect_true(key(pw$clopen_backward) %in% vapply(full$backward$topology, key, ""))
+  expect_setequal(c(pw$clopen_forward, pw$clopen_backward), seq_along(y))
+  expect_identical(full$invariants$pairwise, pw)
 })
 
-test_that("pairwise connectedness is computable with enumeration", {
-  bt <- generate_bitopology(c(3, 1, 4), max_open_sets = 1000L)
-  pw <- bt$invariants$pairwise
-  # Should be TRUE or FALSE, not NA
-  if (!is.na(pw$pairwise_connected)) {
-    expect_true(is.logical(pw$pairwise_connected))
+# Algorithm 5 of the accompanying article, kept as the second oracle of the
+# exact criterion: it looks up the complement of each enumerated proper
+# forward-open set among the enumerated proper backward-open sets, answers
+# FALSE with the first witness found, TRUE when there is none and both
+# enumerations are certified complete, and NA otherwise.
+algorithm5 <- function(tf, tb, n) {
+  key <- function(s) paste(sort(s), collapse = ",")
+  proper_bwd <- tb$topology[lengths(tb$topology) > 0L & lengths(tb$topology) < n]
+  bwd <- vapply(proper_bwd, key, "")
+  for (U in tf$topology) {
+    if (length(U) == 0L || length(U) == n) next
+    W <- setdiff(seq_len(n), U)
+    if (key(W) %in% bwd) {
+      return(list(pairwise_connected = FALSE, clopen_forward = sort(U),
+                  clopen_backward = W))
+    }
   }
+  complete <- isTRUE(tf$topology_complete) && isTRUE(tb$topology_complete)
+  list(pairwise_connected = if (complete) TRUE else NA)
+}
+
+# The exact criterion on one digraph against algorithm 5 on its complete
+# enumerations: the same answer, and a witness made of enumerated open sets
+# that partition the vertices.
+expect_algorithm5_agrees <- function(out_adj, in_adj, n, info) {
+  key <- function(s) paste(sort(s), collapse = ",")
+  tf <- enumerate_quietly(generate_topology(out_adj, n,
+                                            max_open_sets = as.integer(2^n)))
+  tb <- enumerate_quietly(generate_topology(in_adj, n,
+                                            max_open_sets = as.integer(2^n)))
+  expect_true(isTRUE(tf$topology_complete) && isTRUE(tb$topology_complete),
+              info = info)
+  pw <- bitopology_invariants(tf, tb, n)$pairwise
+  expect_identical(pw$pairwise_connected, algorithm5(tf, tb, n)$pairwise_connected,
+                   info = info)
+  if (isFALSE(pw$pairwise_connected)) {
+    expect_true(key(pw$clopen_forward) %in% vapply(tf$topology, key, ""), info = info)
+    expect_true(key(pw$clopen_backward) %in% vapply(tb$topology, key, ""), info = info)
+    expect_setequal(c(pw$clopen_forward, pw$clopen_backward), seq_len(n))
+    expect_length(intersect(pw$clopen_forward, pw$clopen_backward), 0L)
+  }
+  pw$pairwise_connected
+}
+
+test_that("the exact criterion agrees with algorithm 5 on every digraph with at most three vertices", {
+  seen <- c(conn = 0L, disc = 0L)
+  for (n in 1:3) {
+    arcs <- expand.grid(j = seq_len(n), i = seq_len(n))
+    arcs <- arcs[arcs$i != arcs$j, ]
+    for (code in seq_len(2^nrow(arcs)) - 1L) {
+      on <- bitwAnd(code, as.integer(2^(seq_len(nrow(arcs)) - 1L))) > 0L
+      out_adj <- lapply(seq_len(n), function(v) arcs$j[on & arcs$i == v])
+      in_adj <- lapply(seq_len(n), function(v) arcs$i[on & arcs$j == v])
+      ans <- expect_algorithm5_agrees(out_adj, in_adj, n, sprintf("n = %d, code %d", n, code))
+      if (isTRUE(ans)) seen[["conn"]] <- seen[["conn"]] + 1L else seen[["disc"]] <- seen[["disc"]] + 1L
+    }
+  }
+  expect_identical(sum(seen), 69L)
+  expect_gt(seen[["conn"]], 0L)
+  expect_gt(seen[["disc"]], 0L)
+})
+
+test_that("the exact criterion agrees with algorithm 5 on random digraphs with cycles", {
+  set.seed(4203)
+  seen <- c(conn = 0L, disc = 0L)
+  for (r in 1:300) {
+    n <- sample(2:7, 1)
+    A <- matrix(stats::runif(n * n) < stats::runif(1), n)
+    diag(A) <- FALSE
+    out_adj <- lapply(seq_len(n), function(v) which(A[v, ]))
+    in_adj <- lapply(seq_len(n), function(v) which(A[, v]))
+    ans <- expect_algorithm5_agrees(out_adj, in_adj, n, sprintf("case %d", r))
+    if (isTRUE(ans)) seen[["conn"]] <- seen[["conn"]] + 1L else seen[["disc"]] <- seen[["disc"]] + 1L
+  }
+  expect_gt(seen[["conn"]], 0L)
+  expect_gt(seen[["disc"]], 0L)
+})
+
+test_that("a directed visibility graph is pairwise disconnected by every split into segments", {
+  # Referent: the theorem in ?bitopology_invariants. Every arc goes forward in
+  # time, so each final segment is forward-open and each initial segment is
+  # backward-open; the segments are looked up in the complete enumerations.
+  set.seed(4201)
+  key <- function(s) paste(sort(s), collapse = ",")
+  for (r in 1:40) {
+    n <- sample(2:8, 1)
+    y <- sample(0:4, n, TRUE) + 0
+    bt <- enumerate_quietly(generate_bitopology(
+      y, graph_type = if (r %% 2) "hvg" else "nvg",
+      max_open_sets = 100000L, alexandrov = FALSE))
+    expect_true(isTRUE(bt$forward$topology_complete) &&
+                  isTRUE(bt$backward$topology_complete))
+    fwd <- vapply(bt$forward$topology, key, "")
+    bwd <- vapply(bt$backward$topology, key, "")
+    for (k in seq_len(n - 1L)) {
+      expect_true(key((k + 1L):n) %in% fwd, info = sprintf("case %d, k = %d", r, k))
+      expect_true(key(seq_len(k)) %in% bwd, info = sprintf("case %d, k = %d", r, k))
+    }
+    pw <- bt$invariants$pairwise
+    expect_false(pw$pairwise_connected)
+    expect_true(key(pw$clopen_forward) %in% fwd, info = sprintf("case %d", r))
+    expect_true(key(pw$clopen_backward) %in% bwd, info = sprintf("case %d", r))
+    # {n} is forward-open and not backward-open, so the two topologies always
+    # differ (see ?generate_bitopology).
+    expect_true(key(n) %in% fwd)
+    expect_false(key(n) %in% bwd)
+  }
+})
+
+test_that("a digraph with cycles can be pairwise connected, with or without enumeration", {
+  # Arcs 1->2, 2->1, 2->3, 3->1, 3->2: the forward topology is
+  # {{}, {1,2}, V}, the backward one {{}, {2,3}, V}, and {3} is not
+  # backward-open, so no witness exists.
+  out_adj <- list(2L, c(1L, 3L), c(1L, 2L))
+  in_adj <- list(c(2L, 3L), c(1L, 3L), 2L)
+  tf <- generate_topology(out_adj, 3L, max_open_sets = 100L)
+  tb <- generate_topology(in_adj, 3L, max_open_sets = 100L)
+  key <- function(s) paste(sort(s), collapse = ",")
+  expect_setequal(vapply(tf$topology, key, ""), c("", "1,2", "1,2,3"))
+  expect_setequal(vapply(tb$topology, key, ""), c("", "2,3", "1,2,3"))
+  expect_true(bitopology_invariants(tf, tb, 3L)$pairwise$pairwise_connected)
+  tf0 <- generate_topology(out_adj, 3L, max_open_sets = 0L)
+  tb0 <- generate_topology(in_adj, 3L, max_open_sets = 0L)
+  expect_true(bitopology_invariants(tf0, tb0, 3L)$pairwise$pairwise_connected)
 })
 
 

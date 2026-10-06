@@ -1,19 +1,26 @@
 Package: topologyR
 Type: Package
 Title: Topological Connectivity Analysis for Numeric Data
-Version: 0.3.0
+Version: 0.4.0
 Authors@R: 
     person(given = "José Mauricio", family = "Gómez Julián",
            email = "isadore.nabi@pm.me", role = c("aut", "cre"))
-Description: Topological data analysis methods based on graph-theoretic
-    approaches for discovering topological structures in data. Constructs
-    topological spaces from graphs following Nada et al. (2018)
-    <doi:10.1002/mma.4726>, with visibility graph construction for time
-    series following Lacasa et al. (2008) <doi:10.1073/pnas.0709247105>.
-    Supports directed visibility graphs for bitopological analysis of
-    temporal irreversibility (Kelly, 1963), and Alexandrov topology
-    construction from reachability preorders.
-License: MIT + file LICENSE
+Description: Builds topologies on the vertex set of a graph from the
+    closed neighbourhoods of its vertices, a closed-neighbourhood variant of
+    the construction of Nada, El Atik and Atef (2018) <doi:10.1002/mma.4726>,
+    and computes their connected components exactly through the
+    specialization preorder, without enumerating the topology. For time
+    series it builds the horizontal and natural visibility graphs (Luque et
+    al., 2009, <doi:10.1103/PhysRevE.80.046103>; Lacasa et al., 2008,
+    <doi:10.1073/pnas.0709247105>) at equally or unequally spaced instants,
+    deciding the natural criterion exactly under IEEE 754 double
+    arithmetic, and from their
+    directed versions the forward and backward topologies, a bitopological
+    space in the sense of Kelly (1963) <doi:10.1112/plms/s3-13.1.71>,
+    together with the Alexandrov topology of reachability. Reading a series
+    backwards, with its instants reflected, exchanges the two topologies, so
+    the difference of their numbers of components changes sign.
+License: GPL (>= 3)
 URL: https://github.com/IsadoreNabi/topologyR
 BugReports: https://github.com/IsadoreNabi/topologyR/issues
 Encoding: UTF-8

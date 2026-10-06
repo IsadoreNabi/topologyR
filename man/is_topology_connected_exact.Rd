@@ -2,36 +2,62 @@
 % Please edit documentation in R/topology_generation.R
 \name{is_topology_connected_exact}
 \alias{is_topology_connected_exact}
-\title{Check topological connectivity of an existing topology}
+\title{Connectedness of a fully enumerated topology}
 \usage{
 is_topology_connected_exact(topology, n_elements)
 }
 \arguments{
-\item{topology}{A list of integer vectors representing the open sets.}
+\item{topology}{List of integer vectors: the open sets of a topology on
+\eqn{\{1, \ldots, n\}}, in any order, possibly repeated. Indices outside
+that range are ignored. No default.}
 
-\item{n_elements}{Integer. Total number of elements in V.}
+\item{n_elements}{Integer scalar, at least 1: the number of points. No
+default.}
 }
 \value{
-A \code{list} with:
-\describe{
-\item{connected}{Logical. \code{TRUE} if the space is topologically
-connected.}
-\item{component1}{Integer vector (only if disconnected). One component.}
-\item{component2}{Integer vector (only if disconnected). The complement.}
-}
+A \code{list} with \code{connected} (logical). When it is
+\code{FALSE}, also \code{component1}, a proper non-empty open set whose
+complement is open, and \code{component2}, that complement (integer
+vectors). Each of the two is a union of connected components, not
+necessarily a single component; the field names are kept from earlier
+versions.
 }
 \description{
-Checks whether a topological space \eqn{(V, \tau)} is connected by verifying
-the exact definition: no proper non-empty open set has an open complement.
-Uses multi-word bitset representation and hash lookup.
+Decides whether a finite topological space, given by the complete list of
+its open sets, is connected: it is connected if and only if no proper
+non-empty open set has an open complement. Use it on the \code{topology}
+element of a result whose \code{topology_complete} is \code{TRUE}; for a
+topology given by a subbase, \code{\link[=generate_topology]{generate_topology()}} returns the components
+without enumerating anything.
 }
+\details{
+Each set is encoded as a bitset and stored in a hash set; the function scans
+the open sets once and looks up each complement, in
+\eqn{O(|\tau| \lceil n/64 \rceil)} word operations when the hash spreads
+the sets evenly over the table (the usual uniform-hashing assumption; a
+fixed hash function gives no worst-case guarantee).
+}
+\section{Methodological notes}{
+
+The function does not check that the list is a topology, that is, that it
+contains the empty set and the whole set and is closed under unions and
+intersections. On an arbitrary family it reports whether some proper
+non-empty member has its complement in the family, which is connectedness
+only when the family is the complete topology.
+}
+
+\section{Dependencies}{
+
+The compiled engine (C++ through 'Rcpp').
+}
+
 \examples{
-# A connected topology
-tau <- list(integer(0), 1:3, c(1L, 2L), c(2L, 3L))
-is_topology_connected_exact(tau, 3L)
+chain <- list(integer(0), 1L, 1:2, 1:3)
+is_topology_connected_exact(chain, 3L)
 
-# A disconnected topology
-tau2 <- list(integer(0), 1:4, c(1L, 2L), c(3L, 4L))
-is_topology_connected_exact(tau2, 4L)
-
+split <- list(integer(0), 1:2, 3:4, 1:4)
+is_topology_connected_exact(split, 4L)
+}
+\seealso{
+\code{\link[=generate_topology]{generate_topology()}} for exact components from a subbase.
 }

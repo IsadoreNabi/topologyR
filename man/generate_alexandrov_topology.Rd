@@ -2,7 +2,7 @@
 % Please edit documentation in R/directed_topology.R
 \name{generate_alexandrov_topology}
 \alias{generate_alexandrov_topology}
-\title{Generate the Alexandrov topology of the reachability preorder of a digraph}
+\title{Alexandrov topology of the reachability preorder of a digraph}
 \usage{
 generate_alexandrov_topology(
   out_adjacency,
@@ -14,135 +14,125 @@ generate_alexandrov_topology(
 )
 }
 \arguments{
-\item{out_adjacency}{A list of integer vectors, where element \code{i}
-contains the 1-based indices of the direct successors of node
-\code{i}. Any directed graph is accepted; see \emph{Description} for
-the three regimes. Typically obtained from
-\code{\link{horizontal_visibility_graph}} or
-\code{\link{natural_visibility_graph}} with \code{directed = TRUE}.}
+\item{out_adjacency}{List of length \code{n_elements}; element \code{i} is an
+integer vector with the 1-based indices of the direct successors of vertex
+\code{i}. Indices outside \eqn{1, \ldots, n} are ignored. No default.}
 
-\item{n_elements}{Integer. Total number of elements in the ground set V.}
+\item{n_elements}{Integer scalar, at least 1: the number of vertices. Must
+equal \code{length(out_adjacency)}. No default.}
 
-\item{max_open_sets}{Integer. Maximum number of open sets to enumerate
-(default: 0, meaning skip enumeration). The Alexandrov topology can have
-up to \eqn{2^n} open sets, so enumeration is only feasible for small
-\eqn{n}. Connectivity is always computed from the base without
-enumeration.}
+\item{max_open_sets}{Non-negative integer scalar (default 0, no
+enumeration): the enumeration of the open sets stops as soon as their
+number exceeds it. There can be up to \eqn{2^n} of them.}
 
-\item{check_connected}{Logical. Whether to compute exact topological
-connectivity via the specialization preorder (default: \code{TRUE}).}
+\item{check_connected}{Logical scalar (default \code{TRUE}): whether to
+compute the connected components.}
 
-\item{verify_axioms}{Logical. Whether to verify topology axioms after
-enumeration (default: \code{FALSE}). Only meaningful when the topology
-is fully enumerated.}
+\item{verify_axioms}{Logical scalar (default \code{FALSE}): whether to check,
+when the enumeration is complete, that the enumerated family contains the
+empty set and the whole set and is closed under the union and the
+intersection of any two members, the axioms of a topology on a finite
+set.}
 
-\item{expect}{Character. What the caller asserts about the input:
-\code{"any"} (default) accepts every digraph and dispatches to the
-right regime; \code{"index_ordered_dag"} \emph{verifies} the strict
-contract of the visibility-graph case -- every edge from a lower to a
-higher index -- and stops with an error if it does not hold. The
-check is \eqn{O(m)}. Use it when the caller's own semantics require
-the strict case (e.g. time-indexed series), so that a malformed
-input fails loudly instead of being silently generalized.}
+\item{expect}{Character scalar: \code{"any"} (default) accepts every
+digraph; \code{"index_ordered_dag"} verifies, in \eqn{O(m)}, that every arc
+goes from a lower to a higher index, as in a directed visibility graph, and
+stops with an error naming the first arc that does not.}
 }
 \value{
-A \code{list} with the same structure as
-\code{\link{generate_topology}}:
+A \code{list} with the elements of \code{\link[=generate_topology]{generate_topology()}} and three
+more:
 \describe{
-\item{subbase}{List of integer vectors. The distinct upsets
-(= base for Alexandrov).}
-\item{base}{List of integer vectors. Same as subbase (upsets are already
-closed under intersection).}
-\item{base_complete}{Always \code{TRUE} (no iteration needed).}
-\item{connected}{Logical. Exact topological connectivity.}
-\item{components}{List of integer vectors. Exact connected components.}
-\item{topology}{List of integer vectors, or \code{NULL}. Open sets if
-enumerated.}
-\item{n_open_sets}{Integer, or \code{NA}. Number of open sets if enumerated.}
-\item{complete}{Logical. Whether enumeration finished.}
-\item{input_index_ordered}{Logical. Whether every edge of the input
-went from a lower to a higher index (regime 1).}
-\item{input_acyclic}{Logical. Whether the input had no directed
+\item{subbase, base}{The same list of integer vectors: the distinct sets
+of reachable vertices, which form the minimal base of the topology.
+They are not closed under intersection in general (see Methodological
+notes).}
+\item{base_complete}{Always \code{TRUE}: the minimal base is computed
+exactly.}
+\item{connected, components}{Connectedness and the connected components,
+as in \code{\link[=generate_topology]{generate_topology()}}.}
+\item{topology, n_open_sets, topology_complete}{The enumerated open sets
+and their flags, as in \code{\link[=generate_topology]{generate_topology()}}.}
+\item{input_index_ordered}{Logical: whether every arc went from a lower
+to a higher index.}
+\item{input_acyclic}{Logical: whether the digraph had no directed
 cycle.}
-\item{collapsed_classes}{List of integer vectors: the non-trivial
-strongly connected components, each a class of topologically
-indistinguishable vertices. \code{list()} when there are none.
-A non-empty value is a finding about the system, not an error:
-within each class, the topology cannot distinguish.}
+\item{collapsed_classes}{List of integer vectors: the strongly connected
+components with more than one vertex, whose vertices the topology
+cannot tell apart; \code{list()} when there are none.}
 }
 }
 \description{
-Computes the Alexandrov topology induced by a directed graph via the
-reachability preorder. The open sets are the upsets of reachability:
-vertex \eqn{v}'s minimal open set is the set of all vertices reachable
-from \eqn{v} via directed paths (including \eqn{v} itself).
-
-The input is \strong{any} directed graph. Three regimes are handled,
-and the result reports which one applied:
-\enumerate{
-\item \strong{Index-ordered DAG} (every edge goes from a lower to a
-higher index -- what directed visibility graphs produce): the
-original single-pass bitset engine runs unchanged, bit-identical
-to versions up to 0.2.0.
-\item \strong{DAG in arbitrary vertex order}: the vertices are
-re-indexed along a topological order first. Versions up to 0.2.0
-required index order but did not check it, and returned wrong
-upsets on such inputs without any warning.
-\item \strong{Digraph with directed cycles}: mutually reachable
-vertices have identical upsets by definition of the preorder, so
-the topology is computed on the condensation (Tarjan, 1972) and
-expanded back to the vertices. Versions up to 0.2.0 returned a
-valid-looking but wrong topology on cyclic inputs.
-}
-
-The Alexandrov topology is a \strong{lower bound} on the resolution of
-the Nada et al. (2018) topology: \eqn{\tau_A \subseteq \tau^+_{\mathrm{Nada}}}.
-The difference in base sizes quantifies how much additional structure
-the intersection/union closure of Nada et al. captures beyond the pure
-order structure.
+Computes the Alexandrov topology of the reachability preorder of a directed
+graph: its open sets are the sets closed under following arcs, and the
+smallest open set containing \eqn{v} is the set of vertices reachable from
+\eqn{v} by directed paths, \eqn{v} included. It accepts any digraph and
+reports which of three cases it received; \code{\link[=generate_bitopology]{generate_bitopology()}} applies
+it to directed visibility graphs, where it is always the same chain.
 }
 \details{
-For regime 1 the algorithm computes reachability in
-\eqn{O(n \cdot m / 64)} time by processing vertices in reverse index
-order (= reverse time order for visibility graphs) and propagating
-reachability sets as multi-word bitsets with OR operations. For
-regimes 2 and 3 the strongly connected components are found with
-Tarjan's algorithm (\eqn{O(n + m)}), the condensation is re-indexed
-along a topological order, the same bitset engine runs on the
-condensation, and the resulting sets are expanded back to the original
-vertices. Since vertices in one strongly connected component are
-topologically indistinguishable, the expansion is a bijection between
-the open sets of the condensation and the open sets of the input, so
-every reported field (connectivity, components, enumeration,
-axiom checks) transfers exactly.
-
-The Alexandrov topology on a finite set equipped with a preorder is
-canonical: there is a bijection between preorders and Alexandrov
-topologies (Alexandrov, 1937). For directed visibility graphs, the
-reachability preorder captures the temporal ordering structure of the
-time series.
+Three cases are handled. (1) Every arc goes from a lower to a higher index,
+as in directed visibility graphs: the reachable sets are propagated in
+reverse index order as bitsets, \eqn{\mathrm{reach}(v) = \{v\} \cup
+\bigcup_{w \in \mathrm{out}(v)} \mathrm{reach}(w)}, in
+\eqn{O(n m / 64)} word operations. (2) An acyclic digraph in another order:
+the vertices are first re-indexed along a topological order. (3) A digraph
+with directed cycles: mutually reachable vertices have the same reachable
+set, so the topology is computed on the condensation, found with the
+algorithm of Tarjan (1972), and expanded back; the expansion is a bijection
+between the open sets of the condensation and those of the input, so every
+reported field carries over exactly. A set is closed under following arcs
+if and only if it is closed under following directed paths, which is why
+propagating along single arcs gives the reachable sets.
 }
-\examples{
-series <- c(3, 1, 4, 1, 5)
-g <- horizontal_visibility_graph(series, directed = TRUE)
-alex <- generate_alexandrov_topology(g$out_adjacency, g$n)
-alex$connected
-length(alex$base)
+\section{Methodological notes}{
 
-# A directed cycle: all three vertices are mutually reachable, so the
-# topology collapses them into one class
+\emph{The base is minimal, not intersection-closed.} For the arcs
+\eqn{a \to c}, \eqn{a \to d}, \eqn{b \to c}, \eqn{b \to d}, the reachable
+sets are \eqn{\{a, c, d\}}, \eqn{\{b, c, d\}}, \eqn{\{c\}} and \eqn{\{d\}};
+the first two meet in \eqn{\{c, d\}}, which is open, as the union of
+\eqn{\{c\}} and \eqn{\{d\}}, but is not one of them. The number of base sets
+is the number of strongly connected components.
+
+\emph{Relation with the forward topology.} For every digraph, the
+Alexandrov topology is contained in the forward topology generated by the
+closed forward neighbourhoods \eqn{N^+[v]} (see \code{\link[=generate_bitopology]{generate_bitopology()}}):
+each reachable set is the union of the \eqn{N^+[w]} of its points. It is not
+contained in the undirected topology in general: on the path
+\eqn{1 \to 2 \to 3 \to 4}, \eqn{\{4\}} is open here and not in the
+undirected topology, whose smallest open set containing 4 is
+\eqn{\{3, 4\}}.
+
+The connection between finite topologies and preorders goes back to
+Alexandroff (1937), after whom these spaces are named.
+}
+
+\section{Dependencies}{
+
+The compiled engine (C++ through 'Rcpp') for the propagation and the
+components; base R for the condensation.
+}
+
+\examples{
+g <- horizontal_visibility_graph(c(3, 1, 4, 1, 5), directed = TRUE)
+alex <- generate_alexandrov_topology(g$out_adjacency, g$n)
+alex$base
+alex$connected
+
+cross <- generate_alexandrov_topology(list(c(3L, 4L), c(3L, 4L), integer(0), integer(0)), 4L)
+cross$base
+
 cyc <- generate_alexandrov_topology(list(2L, 3L, 1L), 3L)
 cyc$collapsed_classes
-
 }
 \references{
-Alexandrov, P. (1937). Diskrete Raume. \emph{Matematicheskii Sbornik},
-2(44), 501-519.
+Alexandroff, P. (1937). Diskrete Räume. Recueil Mathématique (Matematicheskii
+Sbornik), Nouvelle Série, 2(44)(3), 501-519. https://www.mathnet.ru/eng/sm5579
 
-Tarjan, R. E. (1972). Depth-first search and linear graph algorithms.
-\emph{SIAM Journal on Computing}, 1(2), 146-160.
+Tarjan, R. (1972). Depth-first search and linear graph algorithms. SIAM
+Journal on Computing, 1(2), 146-160. https://doi.org/10.1137/0201010
 }
 \seealso{
-\code{\link{generate_topology}} for the Nada et al. topology,
-\code{\link{generate_bitopology}} for the complete bitopological analysis.
+\code{\link[=generate_topology]{generate_topology()}} for the topologies of closed
+neighbourhoods, \code{\link[=generate_bitopology]{generate_bitopology()}} for the time-series pipeline.
 }

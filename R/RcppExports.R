@@ -17,7 +17,11 @@ hvg_cpp <- function(y) {
     .Call(`_topologyR_hvg_cpp`, y)
 }
 
-nvg_cpp <- function(y) {
-    .Call(`_topologyR_nvg_cpp`, y)
+nvg_cpp <- function(y, t) {
+    .Call(`_topologyR_nvg_cpp`, y, t)
+}
+
+chord_below_sign_cpp <- function(ta, xa, tb, xb, tk, xk) {
+    .Call(`_topologyR_chord_below_sign_cpp`, ta, xa, tb, xb, tk, xk)
 }
 

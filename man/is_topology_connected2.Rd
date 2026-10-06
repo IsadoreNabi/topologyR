@@ -2,26 +2,53 @@
 % Please edit documentation in R/topology_functions.R
 \name{is_topology_connected2}
 \alias{is_topology_connected2}
-\title{Check if a topology is connected using directed graph approach}
+\title{Label-order reachability within a family of sets}
 \usage{
 is_topology_connected2(topology)
 }
 \arguments{
-\item{topology}{A list of integer vectors representing the open sets.}
+\item{topology}{A list of integer vectors (positive labels), read as a
+family of subsets. No default.}
 }
 \value{
-\code{logical} scalar. \code{TRUE} if all elements are reachable
-from the minimum element via directed edges, \code{FALSE} otherwise.
+A \code{logical} scalar: \code{TRUE} if every label that appears in
+the family is reachable from the smallest label along the arcs described
+above, \code{FALSE} otherwise or if the family is empty.
 }
 \description{
-Converts the topology into a directed graph (sequential edges between
-sorted elements within each set) and checks reachability via DFS.
-
-\strong{Note:} This is a necessary but not sufficient condition for
-topological connectivity. For an exact check, use
-\code{\link{is_topology_connected_exact}}.
+Builds a directed graph with an arc between consecutive labels, in
+increasing order, inside each member of a family of sets, and reports
+whether every label that appears in the family is reachable from the
+smallest one. It is retained from version 0.1.0 for backward compatibility
+and is not a test of topological connectedness; use \code{\link[=generate_topology]{generate_topology()}} or
+\code{\link[=is_topology_connected_exact]{is_topology_connected_exact()}} for that.
 }
+\details{
+Memory grows with the square of the largest label, because the arcs are
+stored as a dense matrix.
+}
+\section{Methodological notes}{
+
+The answer depends on how the elements are labelled, so it is not a
+topological invariant, and it is neither a necessary nor a sufficient
+condition for connectedness. The base \{1, 3\}, \{2, 3\} generates the
+connected topology whose open sets are \{\}, \{3\}, \{1, 3\}, \{2, 3\} and
+\{1, 2, 3\} (no proper non-empty open set has an open complement), yet label
+2 is not reachable from label 1 and the function returns \code{FALSE}. The
+discrete topology on \{1, 2\}, listed as \{\}, \{1\}, \{2\}, \{1, 2\}, is
+disconnected, yet the function returns \code{TRUE}.
+}
+
+\section{Dependencies}{
+
+Base R only.
+}
+
 \examples{
-topology <- list(c(1, 2, 3), c(3, 4, 5))
-is_topology_connected2(topology)
+is_topology_connected2(list(c(1, 2, 3), c(3, 4, 5)))
+is_topology_connected2(list(c(1L, 3L), c(2L, 3L)))
+}
+\seealso{
+\code{\link[=generate_topology]{generate_topology()}} and \code{\link[=is_topology_connected_exact]{is_topology_connected_exact()}} for exact
+connectedness, \code{\link[=is_topology_connected]{is_topology_connected()}} for a necessary condition.
 }

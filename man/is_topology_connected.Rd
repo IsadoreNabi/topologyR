@@ -2,27 +2,60 @@
 % Please edit documentation in R/topology_functions.R
 \name{is_topology_connected}
 \alias{is_topology_connected}
-\title{Check if a topology is connected using undirected graph approach}
+\title{Connectivity of the co-occurrence graph of a family of sets}
 \usage{
 is_topology_connected(topology)
 }
 \arguments{
-\item{topology}{A list of integer vectors representing the open sets.}
+\item{topology}{A list of integer vectors (positive labels), read as a
+family of subsets of the labels that appear in it. A full topology, a base
+or a subbase are all admissible. No default.}
 }
 \value{
-\code{logical} scalar. \code{TRUE} if the derived graph is connected,
-\code{FALSE} otherwise or if the topology is empty.
+A \code{logical} scalar: \code{TRUE} if the co-occurrence graph on
+the labels that appear in the family is connected, \code{FALSE} if it is
+not or if the family is empty.
 }
 \description{
-Converts the topology into an undirected graph (two elements share an edge
-if they appear together in any open set) and checks graph connectivity via
-depth-first search.
-
-\strong{Note:} This is a necessary but not sufficient condition for
-topological connectivity. For an exact check, use
-\code{\link{is_topology_connected_exact}}.
+Builds the co-occurrence graph of a family of sets, in which two elements
+are adjacent when some member of the family contains both, and reports
+whether that graph is connected. It is retained from version 0.1.0 as a
+quick necessary-condition screen; the exact test of topological
+connectedness is \code{\link[=generate_topology]{generate_topology()}} for a topology given by a subbase and
+\code{\link[=is_topology_connected_exact]{is_topology_connected_exact()}} for a fully enumerated topology.
 }
+\details{
+The ground set is taken to be the set of labels that appear in some member,
+and the graph is traversed from the first of them. Memory grows with the
+square of the largest label, because the graph is stored as a dense
+adjacency matrix.
+}
+\section{Methodological notes}{
+
+For any family of open sets that covers the ground set, a topologically
+connected space has a connected co-occurrence graph: if the graph split into
+two non-empty parts, every member would lie inside one part, each part would
+be a union of members and hence open, and the two parts would disconnect the
+space. A disconnected graph therefore proves that the space is disconnected.
+The converse fails: the discrete topology on \{1, 2\}, given by its open sets
+\{\}, \{1\}, \{2\} and \{1, 2\}, is disconnected while its co-occurrence
+graph is connected, and any list that contains the whole ground set makes
+the graph complete. A \code{TRUE} answer is thus inconclusive.
+}
+
+\section{Dependencies}{
+
+Base R only.
+}
+
 \examples{
-topology <- list(c(1, 2, 3), c(3, 4, 5))
-is_topology_connected(topology)
+is_topology_connected(list(c(1, 2, 3), c(3, 4, 5)))
+is_topology_connected(list(c(1, 2), c(3, 4)))
+is_topology_connected(list(integer(0), 1L, 2L, c(1L, 2L)))
+}
+\seealso{
+\code{\link[=is_topology_connected_exact]{is_topology_connected_exact()}} for the exact test on an enumerated
+topology, \code{\link[=generate_topology]{generate_topology()}} for exact components from a subbase,
+\code{\link[=is_topology_connected2]{is_topology_connected2()}} and \code{\link[=is_topology_connected_manual]{is_topology_connected_manual()}} for the
+other legacy diagnostics.
 }

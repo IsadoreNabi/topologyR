@@ -2,75 +2,108 @@
 % Please edit documentation in R/visibility_graph.R
 \name{horizontal_visibility_graph}
 \alias{horizontal_visibility_graph}
-\title{Construct the Horizontal Visibility Graph of a time series}
+\title{Horizontal visibility graph of a time series}
 \usage{
-horizontal_visibility_graph(series, directed = FALSE)
+horizontal_visibility_graph(series, directed = FALSE, times = NULL)
 }
 \arguments{
-\item{series}{Numeric vector representing the time series. The position
-index is used as the time coordinate.}
+\item{series}{Numeric vector without \code{NA}, \code{NaN} or infinite
+values. A series of length 0 or 1 gives a graph without edges. No default.}
 
-\item{directed}{Logical. If \code{TRUE}, also returns directed adjacency
-lists (\code{out_adjacency} and \code{in_adjacency}) for constructing
-forward and backward Nada topologies or Alexandrov topologies. Edges
-are directed from earlier to later time (default: \code{FALSE}).}
+\item{directed}{Logical scalar (default \code{FALSE}): whether to return the
+directed adjacency lists as well.}
+
+\item{times}{\code{NULL} (default), meaning the instants
+\eqn{1, \ldots, n}, or a numeric, \code{Date} or date-time vector of
+finite, strictly increasing instants of the same length as \code{series};
+dates count in days and date-times in seconds.}
 }
 \value{
 A \code{list} with:
 \describe{
-\item{edges}{A \code{data.frame} with columns \code{from} and \code{to}
-(integer, 1-based indices) representing undirected edges.}
-\item{n}{Integer. Number of observations in the series.}
-\item{n_edges}{Integer. Number of edges in the graph.}
-\item{adjacency}{A list of integer vectors, where element \code{i}
-contains the indices of all neighbors of node \code{i}. This is
-the neighborhood structure used as subbase for topology induction.}
-\item{out_adjacency}{(Only if \code{directed = TRUE}.) A list of integer
-vectors, where element \code{i} contains the indices of all forward
-(later-in-time) neighbors. Used as subbase for the forward Nada
-topology \eqn{\tau^+} or as input for the Alexandrov topology.}
-\item{in_adjacency}{(Only if \code{directed = TRUE}.) A list of integer
-vectors, where element \code{i} contains the indices of all backward
-(earlier-in-time) neighbors. Used as subbase for the backward Nada
-topology \eqn{\tau^-}.}
+\item{edges}{\code{data.frame} with integer columns \code{from} and
+\code{to}, \code{from < to}, one row per edge.}
+\item{n}{Integer: the number of observations.}
+\item{n_edges}{Integer: the number of edges.}
+\item{adjacency}{List of integer vectors: element \code{i} holds the
+neighbours of observation \code{i}, its open neighbourhood
+\eqn{N(i)}; \code{\link[=generate_topology]{generate_topology()}} adds \code{i} itself.}
+\item{times}{Numeric vector: the instants used.}
+\item{out_adjacency}{Only with \code{directed = TRUE}: list whose
+element \code{i} holds the later neighbours of \code{i}.}
+\item{in_adjacency}{Only with \code{directed = TRUE}: list whose
+element \code{i} holds the earlier neighbours of \code{i}.}
 }
 }
 \description{
-Constructs the Horizontal Visibility Graph (HVG) from a time series.
-Two observations \eqn{(t_a, y_a)} and \eqn{(t_b, y_b)} with \eqn{t_a < t_b}
-are connected if and only if every intermediate observation \eqn{(t_c, y_c)}
-satisfies \eqn{y_c < \min(y_a, y_b)}.
-
-The HVG is parameter-free and captures structural properties of the series
-dynamics. It is computed in \eqn{O(n)} time using a stack-based algorithm.
+Builds the horizontal visibility graph of a series (Luque et al., 2009): two
+observations are adjacent when every observation strictly between them is
+strictly lower than both. With \code{directed = TRUE} it also returns the
+arcs from the earlier to the later observation of each edge, which
+\code{\link[=generate_bitopology]{generate_bitopology()}} turns into the forward and backward topologies.
+The instants of observation enter only through their order, so
+\code{times} is validated and recorded but does not change the graph.
 }
 \details{
-The algorithm uses a monotone stack with \eqn{O(n)} time and space
-complexity. Each element is pushed and popped at most once.
-
-The adjacency list returned as \code{adjacency} provides the neighborhood
-structure \eqn{N(v)} for each vertex, which serves as the subbase for
-inducing a topology following Nada et al. (2018).
-
-When \code{directed = TRUE}, the function additionally returns directed
-adjacency lists. By construction, all edges satisfy \code{from < to}
-(earlier time to later time), so the directed graph is a DAG with the
-time index as topological order.
+The series is scanned from left to right with a stack whose values decrease
+strictly from bottom to top, in \eqn{O(n)} time. When observation \eqn{i}
+arrives, every stacked index \eqn{j} with \eqn{y_j \le y_i} is popped and
+joined to \eqn{i}: nothing between \eqn{j} and \eqn{i} reaches \eqn{y_j},
+or it would have popped \eqn{j} earlier. The index left on top, if any, is
+higher than \eqn{y_i} and is joined to \eqn{i} unless a popped value equals
+\eqn{y_i}, which blocks at height \eqn{\min = y_i}. Every other earlier index
+is blocked: one deeper in the stack by that top, which is higher than
+\eqn{y_i}; one popped before by the index that popped it, which lies in
+between and is at least as high. Each edge is thus reported exactly once,
+always with \code{from < to}.
 }
+\section{Methodological notes}{
+
+The criterion uses comparisons of values and nothing else, so the graph is
+computed exactly on the numbers received, is invariant under any strictly
+increasing transformation of the values, and does not depend on the
+spacing of the instants. Decimal data are converted to binary doubles
+before they reach the function, and the graph is that of the doubles. A
+conversion that rounds each decimal to the nearest double keeps the order
+of the decimals, and keeps distinct any two with at most fifteen
+significant digits in the normal range (magnitudes from about
+\eqn{2.2 \times 10^{-308}} to \eqn{1.8 \times 10^{308}}), because their
+relative gap, at least \eqn{10^{-15}}, exceeds the relative spacing of
+doubles, at most \eqn{2^{-52}}; outside that range distinct decimals can
+collapse:
+\eqn{2 \times 10^{-324}}, \eqn{10^{-324}} and \eqn{2 \times 10^{-324}} all
+become zero, and the edge between the first and the third disappears.
+
+The function stops with an error when the floating-point environment does
+not provide IEEE 754 double arithmetic (see \link{natural_visibility_exactness}
+for the test). Under the denormals-are-zero mode, which some libraries
+switch on, the comparisons would treat every subnormal value as zero; the
+flush-to-zero mode, which changes results of arithmetic and not these
+comparisons, is refused as well, because the same test guards the natural
+criterion, which depends on it.
+}
+
+\section{Dependencies}{
+
+The compiled engine (C++ through 'Rcpp').
+}
+
 \examples{
 series <- c(3, 1, 4, 1, 5, 9, 2, 6)
 g <- horizontal_visibility_graph(series)
 g$n_edges
 head(g$edges)
 
-# Directed graph for bitopological analysis
 gd <- horizontal_visibility_graph(series, directed = TRUE)
-gd$out_adjacency[[1]]  # forward neighbors of first observation
-
+gd$out_adjacency[[1]]
+gd$in_adjacency[[5]]
 }
 \references{
 Luque, B., Lacasa, L., Ballesteros, F., & Luque, J. (2009). Horizontal
-visibility graphs: exact results for random time series.
-\emph{Physical Review E}, 80(4), 046103.
-\doi{10.1103/PhysRevE.80.046103}
+visibility graphs: Exact results for random time series. Physical Review
+E, 80(4), Article 046103. https://doi.org/10.1103/PhysRevE.80.046103
+}
+\seealso{
+\code{\link[=natural_visibility_graph]{natural_visibility_graph()}}, \code{\link[=generate_bitopology]{generate_bitopology()}},
+\code{\link[=time_reverse]{time_reverse()}}.
 }

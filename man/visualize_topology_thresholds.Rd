@@ -2,27 +2,49 @@
 % Please edit documentation in R/topology_functions.R
 \name{visualize_topology_thresholds}
 \alias{visualize_topology_thresholds}
-\title{Visualize and compare different threshold methods}
+\title{Compare the candidate radii of calculate_thresholds()}
 \usage{
 visualize_topology_thresholds(data, plot = TRUE)
 }
 \arguments{
-\item{data}{Numeric vector to analyze.}
+\item{data}{Numeric vector with at least two elements and no missing
+values. No default.}
 
-\item{plot}{Logical indicating whether to return plot objects
-(default: \code{TRUE}).}
+\item{plot}{Logical scalar; if \code{TRUE} (default) the result carries
+three \code{ggplot} objects in its \code{"plots"} attribute.}
 }
 \value{
-A \code{data.frame} with columns \code{method}, \code{threshold},
-and \code{base_size}. If \code{plot = TRUE}, carries an attribute
-\code{"plots"} containing a list of three \code{ggplot} objects.
+A \code{data.frame} with the columns \code{method} (character),
+\code{threshold} (numeric) and \code{base_size} (integer, counted as in
+\code{\link[=calculate_topology]{calculate_topology()}}). If \code{plot = TRUE}, it carries an attribute
+\code{"plots"}: a list with the elements \code{threshold},
+\code{base_size} and \code{scatter}.
 }
 \description{
-Visualize and compare different threshold methods
+Computes the five candidate radii of \code{\link[=calculate_thresholds]{calculate_thresholds()}} and the size
+of the threshold-neighbourhood base that each one generates, and optionally
+plots them side by side.
 }
+\section{Methodological notes}{
+
+The comparison is descriptive: it shows how the radius, and with it the
+granularity of the base, depends on the scale chosen.
+}
+
+\section{Dependencies}{
+
+'ggplot2' (Imports) for the plots; \code{\link[=calculate_thresholds]{calculate_thresholds()}} and
+\code{\link[=calculate_topology]{calculate_topology()}} for the numbers.
+}
+
 \examples{
 \donttest{
-data <- rnorm(50)
-results <- visualize_topology_thresholds(data)
+set.seed(1)
+results <- visualize_topology_thresholds(rnorm(50))
+results
 }
+}
+\seealso{
+\code{\link[=calculate_thresholds]{calculate_thresholds()}}, \code{\link[=calculate_topology]{calculate_topology()}},
+\code{\link[=analyze_topology_factors]{analyze_topology_factors()}}.
 }

@@ -67,13 +67,30 @@ BEGIN_RCPP
 END_RCPP
 }
 // nvg_cpp
-Rcpp::List nvg_cpp(Rcpp::NumericVector y);
-RcppExport SEXP _topologyR_nvg_cpp(SEXP ySEXP) {
+Rcpp::List nvg_cpp(Rcpp::NumericVector y, Rcpp::NumericVector t);
+RcppExport SEXP _topologyR_nvg_cpp(SEXP ySEXP, SEXP tSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type y(ySEXP);
-    rcpp_result_gen = Rcpp::wrap(nvg_cpp(y));
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type t(tSEXP);
+    rcpp_result_gen = Rcpp::wrap(nvg_cpp(y, t));
+    return rcpp_result_gen;
+END_RCPP
+}
+// chord_below_sign_cpp
+Rcpp::IntegerVector chord_below_sign_cpp(Rcpp::NumericVector ta, Rcpp::NumericVector xa, Rcpp::NumericVector tb, Rcpp::NumericVector xb, Rcpp::NumericVector tk, Rcpp::NumericVector xk);
+RcppExport SEXP _topologyR_chord_below_sign_cpp(SEXP taSEXP, SEXP xaSEXP, SEXP tbSEXP, SEXP xbSEXP, SEXP tkSEXP, SEXP xkSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type ta(taSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type xa(xaSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type tb(tbSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type xb(xbSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type tk(tkSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type xk(xkSEXP);
+    rcpp_result_gen = Rcpp::wrap(chord_below_sign_cpp(ta, xa, tb, xb, tk, xk));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -83,7 +100,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_topologyR_generate_topology_engine", (DL_FUNC) &_topologyR_generate_topology_engine, 7},
     {"_topologyR_is_connected_exact_cpp", (DL_FUNC) &_topologyR_is_connected_exact_cpp, 2},
     {"_topologyR_hvg_cpp", (DL_FUNC) &_topologyR_hvg_cpp, 1},
-    {"_topologyR_nvg_cpp", (DL_FUNC) &_topologyR_nvg_cpp, 1},
+    {"_topologyR_nvg_cpp", (DL_FUNC) &_topologyR_nvg_cpp, 2},
+    {"_topologyR_chord_below_sign_cpp", (DL_FUNC) &_topologyR_chord_below_sign_cpp, 6},
     {NULL, NULL, 0}
 };
 

@@ -13,10 +13,12 @@
 // series index order), reachability is computed in O(n * m / 64) by
 // reverse-order propagation with bitset OR.
 //
-// The hierarchy τ_A ⊆ τ_Nada holds in general: every upset is a union
-// of Nada base elements, but intersections of Nada neighborhoods can
-// produce sets that are not upsets, giving the Nada topology strictly
-// finer resolution.
+// tau_A is contained in the forward Nada topology tau+ for every digraph:
+// every reachability upset is the union of the closed forward
+// neighbourhoods of its points. The inclusion can be strict, because
+// intersections of forward neighbourhoods can be open sets that are not
+// upsets. tau_A is not contained in the undirected Nada topology in general
+// (on the path 1 -> 2 -> 3 -> 4, {4} is an upset and not undirected-open).
 //
 // References:
 //   Alexandrov, P. (1937). Diskrete Räume.
@@ -247,10 +249,17 @@ static Rcpp::List alexandrov_impl(
 
     topo_complete = !exceeded && (frontier_union.size() == 0);
 
+    // The axioms of a topology on a finite set: the empty set and the whole
+    // set are members, and the family is closed under the union and the
+    // intersection of any two members.
     if (verify_axioms && topo_complete) {
       axioms_checked = true;
       int tau_n = topology_vec.size();
       uint64_t ax_scratch[W];
+      if (!tau_set.contains(empty_set) || !tau_set.contains(full_set)) {
+        axioms_ok = false;
+        axiom_failure_msg = "The empty set or the whole set is not in the topology.";
+      }
       for (int i = 0; i < tau_n && axioms_ok; i++) {
         for (int j = i + 1; j < tau_n && axioms_ok; j++) {
           Ops::band(ax_scratch, topology_vec.get(i), topology_vec.get(j));
@@ -258,6 +267,14 @@ static Rcpp::List alexandrov_impl(
             axioms_ok = false;
             axiom_failure_msg =
               "Intersection of two open sets not in topology. "
+              "Bug in Alexandrov construction.";
+            break;
+          }
+          Ops::bor(ax_scratch, topology_vec.get(i), topology_vec.get(j));
+          if (!tau_set.contains(ax_scratch)) {
+            axioms_ok = false;
+            axiom_failure_msg =
+              "Union of two open sets not in topology. "
               "Bug in Alexandrov construction.";
           }
         }
@@ -268,7 +285,11 @@ static Rcpp::List alexandrov_impl(
   // ------------------------------------------------------------------
   // Step 5: Pack results for R
   // ------------------------------------------------------------------
-  // Subbase = base for Alexandrov (upsets are already intersection-closed)
+  // The subbase and the base are both the distinct principal upsets
+  // reach(v), the minimal base of tau_A. They are not closed under
+  // intersection in general: for a->c, a->d, b->c, b->d, reach(a) and reach(b)
+  // meet in {c, d}, which is open (a union of reach(c) and reach(d)) but not
+  // principal.
   Rcpp::List subbase_list(base.size());
   for (int i = 0; i < base.size(); i++) {
     subbase_list[i] = decode_bitset(base.get(i), W, n_elements);
@@ -289,8 +310,8 @@ static Rcpp::List alexandrov_impl(
     Rcpp::Named("base") = base_list,
     Rcpp::Named("base_complete") = true,  // always complete for Alexandrov
     Rcpp::Named("connected") = check_connected
-      ? Rcpp::wrap(connected)
-      : Rcpp::wrap(NA_LOGICAL),
+      ? Rcpp::LogicalVector::create(connected)
+      : Rcpp::LogicalVector::create(NA_LOGICAL),
     Rcpp::Named("components") = comp_list,
     Rcpp::Named("iterations_base") = 0  // no iteration needed
   );
@@ -302,7 +323,7 @@ static Rcpp::List alexandrov_impl(
     }
     result["topology"] = topo_list;
     result["n_open_sets"] = topology_vec.size();
-    result["complete"] = topo_complete;
+    result["topology_complete"] = topo_complete;
     result["iterations_topo"] = iter_topo;
 
     if (axioms_checked) {
@@ -314,7 +335,7 @@ static Rcpp::List alexandrov_impl(
   } else {
     result["topology"] = R_NilValue;
     result["n_open_sets"] = NA_INTEGER;
-    result["complete"] = false;
+    result["topology_complete"] = Rcpp::LogicalVector::create(NA_LOGICAL);
     result["iterations_topo"] = 0;
   }
 
@@ -439,11 +460,18 @@ static Rcpp::List alexandrov_runtime(
     if (verify_axioms && topo_complete) {
       axioms_checked = true; int tn = topology_vec.size();
       std::vector<uint64_t> ax(W);
+      if (!tau_set.contains(empty_set.data()) || !tau_set.contains(full_set.data())) {
+        axioms_ok = false; axiom_fail = "The empty set or the whole set is not in the topology.";
+      }
       for (int i = 0; i < tn && axioms_ok; i++)
         for (int j = i + 1; j < tn && axioms_ok; j++) {
           rtops::band(ax.data(), topology_vec.get(i), topology_vec.get(j), W);
           if (!tau_set.contains(ax.data())) {
-            axioms_ok = false; axiom_fail = "Intersection not in topology.";
+            axioms_ok = false; axiom_fail = "Intersection not in topology."; break;
+          }
+          rtops::bor(ax.data(), topology_vec.get(i), topology_vec.get(j), W);
+          if (!tau_set.contains(ax.data())) {
+            axioms_ok = false; axiom_fail = "Union not in topology.";
           }
         }
     }
@@ -456,16 +484,16 @@ static Rcpp::List alexandrov_runtime(
   Rcpp::List result = Rcpp::List::create(
     Rcpp::Named("subbase") = sl, Rcpp::Named("base") = bl,
     Rcpp::Named("base_complete") = true,
-    Rcpp::Named("connected") = check_connected ? Rcpp::wrap(connected) : Rcpp::wrap(NA_LOGICAL),
+    Rcpp::Named("connected") = check_connected ? Rcpp::LogicalVector::create(connected) : Rcpp::LogicalVector::create(NA_LOGICAL),
     Rcpp::Named("components") = cl, Rcpp::Named("iterations_base") = 0);
   if (enumerate_topology) {
     Rcpp::List tl(topology_vec.size()); for (int i = 0; i < topology_vec.size(); i++) tl[i] = decode_bitset(topology_vec.get(i), W, n_elements);
     result["topology"] = tl; result["n_open_sets"] = topology_vec.size();
-    result["complete"] = topo_complete; result["iterations_topo"] = iter_topo;
+    result["topology_complete"] = topo_complete; result["iterations_topo"] = iter_topo;
     if (axioms_checked) { result["axioms_ok"] = axioms_ok; if (!axioms_ok) result["axiom_failure"] = axiom_fail; }
   } else {
     result["topology"] = R_NilValue; result["n_open_sets"] = NA_INTEGER;
-    result["complete"] = false; result["iterations_topo"] = 0;
+    result["topology_complete"] = Rcpp::LogicalVector::create(NA_LOGICAL); result["iterations_topo"] = 0;
   }
   return result;
 }

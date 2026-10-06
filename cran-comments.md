@@ -1,42 +1,41 @@
-## Submission of topologyR 0.3.0 (bug-fix release)
+## topologyR 0.4.0
 
-CRAN currently hosts 0.2.0. This release is confined to the
-directed-topology module (`R/directed_topology.R` and its tests);
-everything else is untouched. Details in NEWS.md:
+CRAN hosts 0.3.0. The changes are listed in NEWS.md; in short:
 
-* `generate_alexandrov_topology()` assumed -- without checking -- that
-  every edge of the input runs from a lower to a higher vertex index
-  (what directed visibility graphs produce), and returned a valid-looking
-  but wrong topology on any other digraph, silently. It now handles
-  arbitrary digraphs correctly: the original engine runs unchanged on its
-  original input class (verified bit-identical against stored 0.2.0
-  goldens), other DAGs are re-indexed along a topological order, and
-  cyclic digraphs are computed on the Tarjan condensation and expanded
-  back. One additive argument (`expect`) turns the old implicit
-  precondition into a verified contract; three new result fields report
-  which case applied.
+* The licence changes from MIT to GPL (>= 3). Every commit of the package is
+  by its author and maintainer.
+* The visibility-graph constructors accept unequally spaced instants
+  (`times`), and a new function `time_reverse()` returns a series read
+  backwards with its instants reflected.
+* The natural visibility criterion is decided exactly on the input doubles,
+  under IEEE 754 double arithmetic (a floating-point filter whose sign is
+  certified by a proven threshold, and an exact integer evaluation when the
+  threshold does not decide); the proofs and their hypotheses are in the new
+  help page `natural_visibility_exactness`.
+* The completeness flag `complete` is renamed `topology_complete` and is `NA`
+  when no enumeration was requested; incomplete computations no longer report
+  undue exactness.
+* The documentation and the user manual were corrected and completed; the
+  manual's code is now run by the test suite.
 
-* `bitopology_invariants()` no longer returns `irreversibility_base`:
-  the quantity is identically zero by a theorem of the construction
-  (the intents-extents duality of formal concept analysis), now proven
-  and documented on the manual page. The two base sizes it compared
-  remain reported. A property test keeps the theorem in the suite.
-
-No exported function was removed or renamed.
+There are no reverse dependencies on CRAN (`tools::package_dependencies()`
+with `reverse = TRUE` over all dependency fields, 2026-10-05).
 
 ## Test environments
 
-* local: Fedora Linux 44, R 4.6.0
+* local: Fedora Linux 44, R 4.6.1, g++ (GCC) 16.2.1.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+With the distribution's compiler flags: 0 errors | 0 warnings | 1 note.
 
-The note reports non-portable compilation flags; they are injected by the
-distribution's system toolchain, none is set by the package's Makevars,
-and the note should not reproduce on CRAN's builders.
+The note reports non-portable compilation flags. All of them come from the
+system R configuration (`R CMD config CXXFLAGS`); the package's `Makevars`
+only sets `CXX_STD = CXX17`. With `CXXFLAGS = -g -O2 -Wall -pedantic` in a
+user Makevars the check returns `Status: OK`, with no compiler warnings.
 
-The test suite (1,465 assertions) passes with no failures, warnings or
-skips, including gate batteries with referents external to the engine:
-stored 0.2.0 goldens (bit identity on the original input class), a pure-R
-Warshall closure, and hand-built condensations.
+The test suite passes with no failures, warnings or skips, including
+batteries whose referents are external to the engine: exact signs computed
+outside the package in rational arithmetic, the 0.2.0 goldens of the
+Alexandrov engine, a pure-R reachability closure, and literal definitions on
+data where double arithmetic is exact.

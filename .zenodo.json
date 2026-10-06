@@ -1,0 +1,12 @@
+{
+  "title": "topologyR: Topological Connectivity Analysis for Numeric Data",
+  "version": "0.4.0",
+  "upload_type": "software",
+  "license": "gpl-3.0-or-later",
+  "creators": [
+    {
+      "name": "Gómez Julián, José Mauricio",
+      "orcid": "0009-0000-2412-3150"
+    }
+  ]
+}

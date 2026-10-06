@@ -3,3 +3,6 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^cran-comments\.md$
+^\.gitignore$
+^dev$
+^\.zenodo\.json$
